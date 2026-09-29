@@ -24,3 +24,5 @@ W Discord Developer Portal włącz Server Members Intent. Zaproś bota ze scopes
 Node >=22.12, npm ci, skopiuj .env.example do .env i uzupełnij, npm start. npm test oraz npm run check do kontroli. Nie publikuj .env ani tokenu. Baza musi być osobna dla tego bota.
 
 Nagrody: po piątym plusie licznik wraca do zera, a ukończony cykl zostaje w historii. Co niedzielę o 20:00 Europe/Warsaw bot kolejkuje na logach nowe nagrody (wiele cykli jednej osoby sumuje). Brak nagród oznacza brak wiadomości. Po przerwie nadrabia zestawienie po uruchomieniu. Zestawienie nie potwierdza wypłaty; nagrody już wykazane nie są ponawiane w następnym tygodniu.
+
+Codziennie o 20:00 Europe/Warsaw: przypomnienie o kursach na kanale 1502335151324004457 z oznaczeniem roli 1465037223350243390. Kontrola co sekundę; po restarcie po 20:00 nadrabia wiadomość tego dnia. Baza zapobiega ponownemu zaplanowaniu tego samego dnia. Dostarczenie zależy od dostępności Discord i bota.

@@ -29,3 +29,5 @@ CREATE TABLE IF NOT EXISTS reward_reports (cutoff timestamptz PRIMARY KEY, creat
 CREATE TABLE IF NOT EXISTS reported_rewards (log_id bigint PRIMARY KEY REFERENCES logs(id), cutoff timestamptz NOT NULL REFERENCES reward_reports(cutoff));
 
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS role_id text;
+
+CREATE TABLE IF NOT EXISTS course_reminders (day date PRIMARY KEY);
