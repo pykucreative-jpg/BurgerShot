@@ -26,7 +26,7 @@ export async function queueRewards(db,now=new Date()) {
     const date=DateTime.fromJSDate(cutoff,{zone:'Europe/Warsaw'}).toFormat('dd.MM.yyyy');
     for(let i=0;i<lines.length;i+=40) {
       const body=`Nagrody do odebrania u zarządu za ukończone cykle plusów.\n\n${lines.slice(i,i+40).join('\n')}\n\nZestawienie nowych nagród — nie jest potwierdzeniem wypłaty.`;
-      await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,`💰 BurgerShot • Nagrody • ${date}`,body]);
+      await tx.query('INSERT INTO notifications(channel_id,title,body,role_id) VALUES($1,$2,$3,$4)',[config.logs,`💰 BurgerShot • Nagrody • ${date}`,body,i===0?config.staff:null]);
     }
     for(const r of rows)await tx.query('INSERT INTO reported_rewards(log_id,cutoff) VALUES($1,$2)',[r.id,cutoff]);
   }));

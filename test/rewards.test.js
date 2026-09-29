@@ -15,7 +15,7 @@ test('nagrody przetrwają reset, restart nie powiela raportu, następny tydzień
   await add('2026-10-01T10:00:00Z');await add('2026-10-02T10:00:00Z');await add('2026-10-02T11:00:00Z','failed');
   await queueRewards(db,new Date('2026-10-04T17:59:00Z'));assert.equal((await pg.query('SELECT * FROM notifications')).rows.length,0);
   await queueRewards(db,new Date('2026-10-04T18:00:00Z'));await queueRewards(db,new Date('2026-10-05T10:00:00Z'));
-  let rows=(await pg.query('SELECT * FROM notifications')).rows;assert.equal(rows.length,1);assert.match(rows[0].body,/2 × nagroda/);
+  let rows=(await pg.query('SELECT * FROM notifications')).rows;assert.equal(rows.length,1);assert.equal(rows[0].role_id,'1295044894825381950');assert.equal(rows[0].channel_id,'1554530259481665656');assert.match(rows[0].body,/2 × nagroda/);
   await add('2026-10-05T12:00:00Z');await queueRewards(db,new Date('2026-10-12T10:00:00Z'));
   rows=(await pg.query('SELECT * FROM notifications ORDER BY id')).rows;assert.equal(rows.length,2);assert.match(rows[1].body,/1 × nagroda/);assert.equal((await pg.query('SELECT * FROM reported_rewards')).rows.length,3);
 });

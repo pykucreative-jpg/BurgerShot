@@ -22,7 +22,7 @@ export function bot(db,client,svc,env){
     for(const n of pending) {
       try {
         const channel=await client.channels.fetch(n.channel_id);
-        await channel.send({content:n.user_id?`<@${n.user_id}>`:undefined,allowedMentions:{users:n.user_id?[n.user_id]:[],parse:[]},embeds:[card({title:n.title,description:n.body})]});
+        await channel.send({content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]},embeds:[card({title:n.title,description:n.body})]});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);}
     }
