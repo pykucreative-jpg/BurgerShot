@@ -6,7 +6,7 @@ Samodzielny bot Discord. Bez strony, ticketów, czarnej listy, zdjęć i SSN.
 - /plus osoba powod — piąty plus zeruje licznik.
 - /minus osoba powod — drugi minus odbiera zarządzalne rangi i wyrzuca z serwera.
 - /awans osoba powod oraz /degrad osoba powod — jeden stopień w skonfigurowanej hierarchii.
-- /zwolnij osoba powod — odbiera zarządzalne rangi i wyrzuca z serwera.
+- /zwolnij osoby powod — do 20 oznaczeń osób lub ID oddzielonych spacją, wspólny powód. Działa od razu, bez potwierdzenia; usuwa duplikaty, pokazuje sukcesy i błędy. Odbiera zarządzalne rangi i wyrzuca z serwera.
 - /urlop osoba do_kiedy — DD.MM, bieżący rok, koniec dnia w Europe/Warsaw.
 - /zdejmijurlop osoba powod — ręczne zakończenie urlopu.
 
