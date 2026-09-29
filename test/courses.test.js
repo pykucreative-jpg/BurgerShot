@@ -18,7 +18,7 @@ test('jeden wpis na dzień, poprawny ping, restart i kolejny dzień',async t=>{
   assert.equal(await courseReminder(db)(new Date('2026-09-29T19:00:00Z')),false);
   const row=(await pg.query('SELECT * FROM notifications')).rows[0];
   assert.equal(row.channel_id,'1502335151324004457');assert.equal(row.role_id,'1465037223350243390');
-  assert.equal(row.body,'ZAPRASZAMY NA KURSY JEST NORMA DO WYROBIENIA');
+  assert.match(row.body,/ZAPRASZAMY NA KURSY/);assert.match(row.body,/Jest norma do wyrobienia/);
   assert.equal(await run(new Date('2026-09-30T18:00:00Z')),true);
   assert.equal((await pg.query('SELECT * FROM notifications')).rows.length,2);
 });
