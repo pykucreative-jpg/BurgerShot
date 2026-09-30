@@ -16,7 +16,7 @@ Dostęp wyłącznie dla rangi kadry zapisanej w src/config.js. Zmiany i wykonawc
 1. Utwórz osobny projekt, usługę z tego repozytorium oraz PostgreSQL o nazwie Postgres.
 2. W usłudze bota ustaw DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID=1292911416248111247, DATABASE_URL jako odwołanie do Postgres.DATABASE_URL, NODE_ENV=production.
 3. Użyj Dockerfile, jednej repliki i wyłącz usypianie/serverless. Bez domeny, portu i HTTP healthcheck — to stale działający bot.
-4. Wdróż zmiany. W logach powinno być: BurgerShot gotowy — 8 komend.
+4. Wdróż zmiany. W logach powinno być: BurgerShot gotowy — 9 komend.
 
 W Discord Developer Portal włącz Server Members Intent. Zaproś bota ze scopes bot i applications.commands. Uprawnienia: View Channels, Send Messages, Embed Links, Manage Roles, Manage Nicknames, Kick Members. Rola bota musi być ponad rangami i osobami, którymi zarządza. Message Content Intent nie jest potrzebny.
 
@@ -30,3 +30,5 @@ Codziennie o 20:00 Europe/Warsaw: przypomnienie o kursach na kanale 150233515132
 Stały panel zarządu: kanał 1502336969605251102. Bot tworzy jedną wiadomość i aktualizuje ją po restarcie. Wybór osoby otwiera prywatny widok; przyciski Plus, Minus, Awans, Degradacja, Zwolnienie otwierają formularz powodu. Wyniki z panelu i tych komend trafiają na dedykowane kanały w src/config.js. Zatrudnianie i urlopy pozostają komendami z odpowiedzią na kanale użycia. Kanał panelu powinien być widoczny tylko dla zarządu i bota; bot wymaga tam View Channel, Send Messages, Embed Links, Read Message History. Ranga kadry jest weryfikowana przy każdym działaniu.
 
 Generator plakietek na kanale 1292911416516415592: przycisk daje prywatnie /opis i /zmiennick dla pierwszego imienia oraz najwyższego stanowiska. Wymaga Firma Dc. Obsługuje 10 stanowisk, z SZEF dla najwyższej rangi. Nie zmienia rang ani pseudonimu na Discordzie. Bot wymaga dostępu do kanału, wysyłania wiadomości, embedów i historii.
+
+/nagrody [strona] — prywatny podgląd dla zarządu wszystkich nierozliczonych nagród, z liczbą cykli na osobę. Tylko odczyt, bez logowania i bez pingów. Niedzielny raport ma przycisk Rozliczono dostępny dla kadry: oznacza wyłącznie nagrody tego raportu, zachowuje historię i nowe cykle zebrane później.
