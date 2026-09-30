@@ -1,3 +1,4 @@
+import {badges} from './badges.js';
 import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
 import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown} from 'discord.js';
@@ -12,6 +13,7 @@ export function commands(){
 export function bot(db,client,svc,env){
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
+ const badgeGenerator=badges(db,client,svc,card);
  const staffTablet=tablet(db,svc,card,publish,destination);
  async function deliveries(){
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
@@ -34,6 +36,7 @@ export function bot(db,client,svc,env){
   }
 
  client.on(Events.InteractionCreate,async i=>{
+  if(i.customId==='badges:generate'){if(!i.inGuild()||i.guildId!==env.guildId)return;await badgeGenerator.handle(i);return;}
   if(i.customId?.startsWith('tablet:')){if(!i.inGuild()||i.guildId!==env.guildId)return;await staffTablet.handle(i);return;}
   if(!i.isChatInputCommand())return;
   try{
@@ -51,5 +54,5 @@ export function bot(db,client,svc,env){
    const result=await svc.run({kind:i.commandName,actorId:i.user.id,targetId:target.id,reason:i.options.getString('powod')||'',channelId:i.channelId,requestId:i.id,icName:i.options.getString('imie_i_nazwisko_ic'),endsAt:i.commandName==='urlop'?parseLeaveDate(i.options.getString('do_kiedy'),{end:true}):undefined});
    try{await publish(i.commandName,{embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
- });return {commands,deliveries,panel:()=>staffTablet.panel(client)};
+ });return {commands,deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();}};
 }
