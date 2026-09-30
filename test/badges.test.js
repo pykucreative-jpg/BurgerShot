@@ -23,3 +23,8 @@ test('generator ma jeden panel i prywatny wynik dla osoby klikającej',async()=>
  const i={user:{id:'self'},deferReply:async p=>{assert.equal(p.flags,64);},editReply:async p=>{assert.match(p.embeds[0].data.fields[1].value,/\[S.P\] Sonic/);}};
  await generator.handle(i);assert.equal(requested,'self');
 });
+
+test('Pracownik Tygodnia dostaje dodatkowy opis, zachowując swoją rangę i nick',()=>{
+ const ids=[config.employee,badgeRanks[3].id];const normal=badgeFor(member(ids));assert.equal(normal.weekly,null);
+ const weekly=badgeFor(member([...ids,'1536106262859616347']));assert.equal(weekly.rank,normal.rank);assert.equal(weekly.nickname,normal.nickname);assert.equal(weekly.description,normal.description);assert.match(weekly.weekly,/~HC_179~ \[Pracownik Tygodnia\]/);assert.match(weekly.weekly,/\[Sonic\]/);
+});
