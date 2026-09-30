@@ -31,3 +31,5 @@ CREATE TABLE IF NOT EXISTS reported_rewards (log_id bigint PRIMARY KEY REFERENCE
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS role_id text;
 
 CREATE TABLE IF NOT EXISTS course_reminders (day date PRIMARY KEY);
+
+CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT NULL,message_id text NOT NULL);

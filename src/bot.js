@@ -1,3 +1,4 @@
+import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
 import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown} from 'discord.js';
 import {config,labels} from './config.js';
@@ -9,6 +10,9 @@ export function commands(){
  return [new SlashCommandBuilder().setName('zwolnij').setDescription('📋 Zwolnij jedną lub wiele osób').setDMPermission(false).addStringOption(o=>o.setName('osoby').setDescription('Oznaczenia @osób lub ID oddzielone spacją — maks. 20').setMaxLength(1000).setRequired(true)).addStringOption(o=>o.setName('powod').setDescription('Wspólny powód zwolnienia').setMaxLength(1000).setRequired(true)),base('zatrudnij').addStringOption(o=>o.setName('imie_i_nazwisko_ic').setDescription('Opcjonalnie — bez podania zachowamy pseudonim').setMaxLength(32)),...['plus','minus','awans','degrad','zdejmijurlop'].map(name=>base(name).addStringOption(o=>o.setName('powod').setDescription('Powód').setMaxLength(1000).setRequired(true))),base('urlop').addStringOption(o=>o.setName('do_kiedy').setDescription('DD.MM — bieżący rok, do końca dnia').setRequired(true))].map(c=>c.toJSON());
 }
 export function bot(db,client,svc,env){
+ const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
+ const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
+ const staffTablet=tablet(db,svc,card,publish,destination);
  async function deliveries(){
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
     for(const l of logs) {
@@ -30,6 +34,7 @@ export function bot(db,client,svc,env){
   }
 
  client.on(Events.InteractionCreate,async i=>{
+  if(i.customId?.startsWith('tablet:')){if(!i.inGuild()||i.guildId!==env.guildId)return;await staffTablet.handle(i);return;}
   if(!i.isChatInputCommand())return;
   try{
    if(!i.inGuild()||i.guildId!==env.guildId)throw new UserError('Użyj komendy na serwerze BurgerShot.');
@@ -37,14 +42,14 @@ export function bot(db,client,svc,env){
    if(!Object.hasOwn(labels,i.commandName))throw new UserError('Nieznana komenda.');
    if(i.commandName==='zwolnij'){
     const reason=i.options.getString('powod',true);
-    const results=await bulkDismiss(svc,{people:i.options.getString('osoby',true),reason,actorId:i.user.id,channelId:i.channelId,requestId:i.id});
+    const results=await bulkDismiss(svc,{people:i.options.getString('osoby',true),reason,actorId:i.user.id,channelId:destination(i.commandName,i.channelId),requestId:i.id});
     const lines=results.map(r=>r.ok?'✅ <@'+r.id+'> — zwolniono':'❌ <@'+r.id+'> — '+escapeMarkdown(r.error.slice(0,100)));
     const payload={embeds:[card({title:'📋 Podsumowanie zwolnień',description:lines.join('\n'),fields:{'💬 Powód':reason,'👤 Wykonał(a)':'<@'+i.user.id+'>','📊 Wynik':results.filter(r=>r.ok).length+' / '+results.length+' zwolnionych'}})],allowedMentions:{parse:[]}};
-    try{await i.channel.send(payload);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply(payload);}return;
+    try{await publish(i.commandName,payload,i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply(payload);}return;
    }
    const target=i.options.getUser('osoba',true);
    const result=await svc.run({kind:i.commandName,actorId:i.user.id,targetId:target.id,reason:i.options.getString('powod')||'',channelId:i.channelId,requestId:i.id,icName:i.options.getString('imie_i_nazwisko_ic'),endsAt:i.commandName==='urlop'?parseLeaveDate(i.options.getString('do_kiedy'),{end:true}):undefined});
-   try{await i.channel.send({embeds:[card(result)]});await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
+   try{await publish(i.commandName,{embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
- });return {commands,deliveries};
+ });return {commands,deliveries,panel:()=>staffTablet.panel(client)};
 }
