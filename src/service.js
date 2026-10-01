@@ -1,4 +1,5 @@
 import { config } from './config.js';
+import {webhookRanks,webhookNotice} from './webhook-logs.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
@@ -145,7 +146,7 @@ export function service(db, client, env) {
     for(const candidate of due) await db.lock(`user:${candidate.user_id}`,async()=>{
       const l=(await db.q('SELECT * FROM leaves WHERE id=$1',[candidate.id])).rows[0];
       if(!['scheduled','active','starting','ending'].includes(l.status)) return;
-      const ending=new Date(l.ends_at)<=new Date() || l.status==='ending';
+      const ending=(l.ends_at!==null&&new Date(l.ends_at)<=new Date()) || l.status==='ending';
       if(l.status==='active'&&!ending) return;
       try {
         await audit({category:ending?'zdejmijurlop':'urlop',actor:{id:client.user.id,name:'Automatycznie'},target:{id:l.user_id,name:l.ic_name},reason:ending?'Upłynął termin urlopu':'Rozpoczęcie zaplanowanego urlopu',channelId:l.channel_id},async steps=>{
@@ -162,5 +163,37 @@ export function service(db, client, env) {
       } catch(err) { await db.q("UPDATE leaves SET error=$2,retry_at=now()+interval '5 minutes' WHERE id=$1",[l.id,err.message]); }
     });
   }
-  return {guild,member,authorize,employee,run,audit,tickLeaves,notify};
+  async function applyWebhook(event,targetId,messageId){
+    return db.lock(`user:${targetId}`,async()=>{
+      const m=await member(targetId);
+      if(m.user.bot)throw new UserError('Nie można wykonać działania na bocie.');
+      const e=await employee(m),channelId=webhookNotice(event).channel;
+      const reason=event.kind==='awans'?'Wyrobienie normy awansowej':['degrad','zwolnij'].includes(event.kind)?'Brak wyrobionej normy':'Decyzja odczytana z logu serwera';
+      return audit({category:event.kind,actor:{id:client.user.id,name:event.actor+' (log serwera)'},target:{id:m.id,name:event.person},reason,channelId,requestId:`webhook:${messageId}`},async steps=>{
+        if(['awans','degrad'].includes(event.kind)){
+          const rank=webhookRanks.find(r=>r.name.toLocaleLowerCase('pl')===event.after.toLocaleLowerCase('pl'));
+          if(!rank)throw new UserError('Nieznane stanowisko docelowe.');
+          await replaceRoles(m,webhookRanks.map(r=>r.id),rank.id,reason,steps);
+          await db.q('UPDATE employees SET rank=$2 WHERE user_id=$1',[m.id,rank.name]);
+        }else if(event.kind==='zwolnij')await dismiss(m,steps,reason);
+        else if(event.kind==='urlop'){
+          let l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rows[0];
+          if(l){await db.q("UPDATE leaves SET ends_at=NULL,starts_at=now(),status='scheduled',channel_id=$2 WHERE id=$1",[l.id,channelId]);l={...l,status:l.applied_nick?'starting':'scheduled',ends_at:null};}
+          else l=(await db.q("INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,now(),NULL,'scheduled',$3,$4,$5) RETURNING *",[m.id,e.ic_name,channelId,client.user.id,event.actor])).rows[0];
+          steps.push('Zapisano urlop bezterminowy');
+          await activate(l,m,steps);
+        }else if(event.kind==='zdejmijurlop'){
+          const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rows[0];
+          if(l)await endLeave(l,m,steps);
+          else{
+            await checkRoles(m,[config.leave]);
+            await m.roles.remove(config.leave);steps.push('Zdjęto rangę urlopową');
+            if(m.nickname?.toLowerCase().includes('[urlop]')){await m.setNickname(clearLeaveNickname(m.nickname));steps.push('Usunięto dopisek urlop');}
+          }
+        }else throw new UserError('Nieznane działanie z logu.');
+        return {title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
+      });
+    });
+  }
+  return {guild,member,authorize,employee,run,audit,tickLeaves,notify,applyWebhook};
 }

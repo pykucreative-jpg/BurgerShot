@@ -16,7 +16,7 @@ export function tablet(db,svc,card,publish,destination){
     fields['👤 Pracownik']=`<@${target}> · ${escapeMarkdown(m.displayName)}`;
     fields['🍟 Stanowisko']=e.rank||'Brak stanowiska';
     fields['⭐ Plusy']=`${e.plus_count}/5`;fields['⚠️ Minusy']=`${e.minus_count}/2`;
-    fields['🌴 Urlop']=leave?`Do ${formatDate(leave.ends_at)}`:'Nie';
+    fields['🌴 Urlop']=leave?(leave.ends_at?`Do ${formatDate(leave.ends_at)}`:'Bezterminowo'):'Nie';
    }catch(err){if(err.code!==10007)throw err;fields['👤 Pracownik']=`<@${target}> — poza serwerem`;}
   }
   const components=[row(new ButtonBuilder().setCustomId(`tablet:search:${owner}`).setLabel('🔎 Wyszukaj').setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId(`tablet:refresh:${owner}:${target||''}`).setLabel('🔄 Odśwież').setStyle(ButtonStyle.Secondary))];

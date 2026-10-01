@@ -53,3 +53,18 @@ test('błąd po nadaniu roli urlopowej jest widoczny i daje się wznowić',async
 });
 
 test('zatrudnienie bez imienia zachowuje pseudonim',async t=>{const {run,target}=await setup(t);target.nickname='Obecny Nick';target.displayName='Obecny Nick';await run('zatrudnij');assert.equal(target.nickname,'Obecny Nick');assert.ok(target.roles.cache.has(config.employee));assert.ok(target.roles.cache.has(config.ranks[0].id));});
+
+test('webhook ustawia dokładny stopień i obsługuje urlop bezterminowy',async t=>{
+ const {svc,target,db,members}=await setup(t);
+ const apply=(kind,id,extra={})=>svc.applyWebhook({kind,actor:'Sonic Savage',person:'Jan Kowalski',...extra},targetId,id);
+ await apply('awans','w1',{before:'Rekrut',after:'Starszy Pracownik'});
+ assert.ok(target.roles.cache.has(config.ranks[3].id));assert.equal(target.roles.cache.has(config.ranks[0].id),false);
+ await assert.rejects(()=>apply('awans','w1',{after:'Specjalista'}),/już obsłużone/);
+ target.nickname='Jan Kowalski';target.displayName='Jan Kowalski';
+ await apply('urlop','w2');await svc.tickLeaves();
+ assert.ok(target.roles.cache.has(config.leave));assert.equal((await db.q('SELECT ends_at FROM leaves')).rows[0].ends_at,null);
+ await apply('urlop','w3');await apply('zdejmijurlop','w4');
+ assert.equal(target.roles.cache.has(config.leave),false);assert.equal(target.nickname,'Jan Kowalski');
+ await apply('degrad','w5',{before:'Starszy Pracownik',after:'Pracownik'});assert.ok(target.roles.cache.has(config.ranks[2].id));
+ await apply('zwolnij','w6');assert.equal(members.has(targetId),false);
+});
