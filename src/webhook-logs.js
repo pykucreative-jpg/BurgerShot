@@ -4,7 +4,7 @@ export const sourceChannel='1530621541325340682';
 const ranks=['Rekrut','Nowicjusz','Pracownik','Starszy Pracownik','Specjalista','Doświadczony Specjalista','Kierownik Zmiany','Kierownik','Menadżer','Szef'];
 const clean=s=>String(s||'').replace(/\*\*|__|`/g,'').replace(/\s+/g,' ').trim();
 const rankIndex=s=>ranks.findIndex(r=>r.toLocaleLowerCase('pl')===s.toLocaleLowerCase('pl'));
-export const webhookRanks=config.ranks.concat([{id:'1292911416285728792',name:'Kierownik Zmiany'},{id:'1292911416306569307',name:'Kierownik'},{id:'1391129116199358545',name:'Menadżer'},{id:'1292911416323342399',name:'Szef'}]);
+export const webhookRanks=config.ranks.concat([{id:'1292911416306569307',name:'Kierownik'},{id:'1391129116199358545',name:'Menadżer'},{id:'1292911416323342399',name:'Szef'}]);
 export const normalizedName=s=>clean(s).replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim().toLocaleLowerCase('pl');
 export function matchEmployee(name,members,employees){
  const wanted=normalizedName(name);
