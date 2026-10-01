@@ -97,7 +97,9 @@ export function service(db, client, env) {
         if(['awans','degrad'].includes(kind)) {
           const change=rankChange(ids,kind==='awans'?1:-1);
           if(change.before===change.after) return {noop:true,title:'🍟 Stanowisko bez zmian',description:`<@${m.id}> ma już ${kind==='awans'?'najwyższe':'najniższe'} stanowisko. Rangi zarządu są nadawane ręcznie.`};
-          await replaceRoles(m,config.ranks.map(r=>r.id),config.ranks[change.after].id,reason,steps); steps.push('Zmieniono stanowisko');
+          const family=config.ranks.map(r=>r.id);
+          if(kind==='degrad'&&config.ranks[change.before].id==='1292911416285728792')family.push(config.staff);
+          await replaceRoles(m,family,config.ranks[change.after].id,reason,steps); steps.push('Zmieniono stanowisko');
           await db.q('UPDATE employees SET rank=$2 WHERE user_id=$1',[m.id,config.ranks[change.after].name]);
           return {title:kind==='awans'?'✨ Pora na kolejny krok!':'📋 Zmiana stanowiska',description:`<@${m.id}> ${kind==='awans'?'awansuje. Gratulujemy! 🍔':'przechodzi na niższe stanowisko.'}`,fields:{'🍟 Stanowisko':`${config.ranks[change.before].name} → ${config.ranks[change.after].name}`,'💬 Powód':reason,'👤 Decyzję podjął/podjęła':`<@${actor.id}>`}};
         }
@@ -173,7 +175,10 @@ export function service(db, client, env) {
         if(['awans','degrad'].includes(event.kind)){
           const rank=webhookRanks.find(r=>r.name.toLocaleLowerCase('pl')===event.after.toLocaleLowerCase('pl'));
           if(!rank)throw new UserError('Nieznane stanowisko docelowe.');
-          await replaceRoles(m,webhookRanks.map(r=>r.id),rank.id,reason,steps);
+          const family=webhookRanks.map(r=>r.id);
+          const fromShift=event.before?.toLocaleLowerCase('pl')==='kierownik zmiany'||m.roles.cache.has('1292911416285728792');
+          if(event.kind==='degrad'&&fromShift&&family.indexOf(rank.id)<family.indexOf('1292911416285728792'))family.push(config.staff);
+          await replaceRoles(m,family,rank.id,reason,steps);
           await db.q('UPDATE employees SET rank=$2 WHERE user_id=$1',[m.id,rank.name]);
         }else if(event.kind==='zwolnij')await dismiss(m,steps,reason);
         else if(event.kind==='urlop'){

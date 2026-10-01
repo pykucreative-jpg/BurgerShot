@@ -68,3 +68,19 @@ test('webhook ustawia dokładny stopień i obsługuje urlop bezterminowy',async 
  await apply('degrad','w5',{before:'Starszy Pracownik',after:'Pracownik'});assert.ok(target.roles.cache.has(config.ranks[2].id));
  await apply('zwolnij','w6');assert.equal(members.has(targetId),false);
 });
+
+test('degradacja kierownika zmiany odbiera zarząd w komendzie i imporcie',async t=>{
+ const {run,svc,target,roles}=await setup(t);
+ const shift='1292911416285728792';
+ target.roles.cache.clear();await target.roles.add([shift,config.staff,config.employee]);
+ roles.get(config.staff).editable=false;
+ await assert.rejects(()=>run('degrad'),/zarządzać rangą/);
+ assert.ok(target.roles.cache.has(shift));assert.ok(target.roles.cache.has(config.staff));
+ roles.get(config.staff).editable=true;
+ await run('degrad');assert.equal(target.roles.cache.has(config.staff),false);assert.equal(target.roles.cache.has(shift),false);assert.ok(target.roles.cache.has(config.ranks[5].id));assert.ok(target.roles.cache.has(config.employee));
+ await run('awans');assert.ok(target.roles.cache.has(shift));assert.equal(target.roles.cache.has(config.staff),false);
+ await target.roles.add(config.staff);
+ await svc.applyWebhook({kind:'degrad',actor:'Sonic Savage',person:'Jan Kowalski',before:'Kierownik Zmiany',after:'Pracownik'},targetId,'shift-demotion');
+ assert.equal(target.roles.cache.has(config.staff),false);assert.equal(target.roles.cache.has(shift),false);assert.ok(target.roles.cache.has(config.ranks[2].id));
+ await target.roles.add(config.staff);await run('degrad');assert.ok(target.roles.cache.has(config.staff));
+});
