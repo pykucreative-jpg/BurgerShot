@@ -60,9 +60,22 @@ export async function ingestWebhookLog(db,message,guildId){
   return true;
  });
 }
+const memberSnapshots=new WeakMap();
+async function membersForImport(svc){
+ const previous=memberSnapshots.get(svc);
+ // Discord updates this live cache on member/role/nickname events.
+ if(previous&&Date.now()-previous.at<60000)return previous.guild.members.cache||previous.members;
+ const guild=await svc.guild(),members=await guild.members.fetch();
+ memberSnapshots.set(svc,{guild,members,at:Date.now()});
+ return guild.members.cache||members;
+}
 export async function processWebhookLogs(db,svc){
  const pending=(await db.q("SELECT * FROM imported_webhook_logs WHERE status='pending' ORDER BY created_at,message_id LIMIT 25")).rows;
- for(const item of pending)await db.lock(`webhook:${item.message_id}`,async()=>{
+ for(const item of pending){
+  // Preserve event order while Discord asks us to wait.
+  if(item.retry_at&&new Date(item.retry_at)>new Date())break;
+  let postponed=false;
+  await db.lock(`webhook:${item.message_id}`,async()=>{
   if((await db.q('SELECT status FROM imported_webhook_logs WHERE message_id=$1',[item.message_id])).rows[0].status!=='pending')return;
   try{
    const existing=(await db.q('SELECT status,target_id FROM logs WHERE request_id=$1',[`webhook:${item.message_id}`])).rows[0];
@@ -71,7 +84,14 @@ export async function processWebhookLogs(db,svc){
     if(!['success','noop'].includes(existing.status))throw new Error('Działanie było przerwane lub nieudane. Sprawdź historię przed ręcznym ponowieniem.');
     targetId=existing.target_id;
    }else{
-    const members=await (await svc.guild()).members.fetch();
+    let members;
+    try{members=await membersForImport(svc);}catch(err){
+     if(/rate.?limit|timed? ?out|timeout/i.test(String(err.message))){
+      await db.q("UPDATE imported_webhook_logs SET retry_at=now()+interval '65 seconds' WHERE message_id=$1",[item.message_id]);
+      postponed=true;return;
+     }
+     throw err;
+    }
     targetId=matchEmployee(item.event.person,members,(await db.q("SELECT user_id,ic_name FROM employees WHERE status='active'")).rows);
     await svc.applyWebhook(item.event,targetId,item.message_id);
    }
@@ -87,4 +107,6 @@ export async function processWebhookLogs(db,svc){
    });
   }
  });
+  if(postponed)break;
+ }
 }

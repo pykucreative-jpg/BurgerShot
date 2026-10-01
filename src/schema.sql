@@ -42,3 +42,10 @@ CREATE TABLE IF NOT EXISTS imported_webhook_logs(message_id text PRIMARY KEY,web
 ALTER TABLE imported_webhook_logs ADD COLUMN IF NOT EXISTS event jsonb;
 ALTER TABLE imported_webhook_logs ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'done';
 ALTER TABLE leaves ALTER COLUMN ends_at DROP NOT NULL;
+ALTER TABLE imported_webhook_logs ADD COLUMN IF NOT EXISTS retry_at timestamptz;
+-- Recover the confirmed gateway-rate-limited promotion only if it is still
+-- the latest event for that person and no personnel action was started.
+UPDATE imported_webhook_logs i SET status='pending',retry_at=now()
+WHERE i.message_id='1555236290411368471' AND i.status='failed' AND i.retry_at IS NULL
+AND NOT EXISTS (SELECT 1 FROM logs WHERE request_id='webhook:'||i.message_id)
+AND NOT EXISTS (SELECT 1 FROM imported_webhook_logs newer WHERE newer.event->>'person'=i.event->>'person' AND newer.created_at>i.created_at);

@@ -45,3 +45,18 @@ test('kolejka wykonuje raz, oznacza osobę i zatrzymuje niejednoznaczne logi',as
  await ingestWebhookLog(db,{...m,id:'568'},'guild');await processWebhookLogs(db,svc);assert.equal(calls,1);
  assert.equal((await pg.query("SELECT status FROM imported_webhook_logs WHERE message_id='568'")).rows[0].status,'failed');
 });
+
+test('szybkie logi dzielą listę członków, limit odkłada kolejkę bez utraty awansu',async t=>{
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={q:(s,p)=>pg.query(s,p),lock:async(k,fn)=>fn(),transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
+ const members=new Map([['123',{id:'123',displayName:'Jan Kowalski',user:{bot:false}}]]);let fetches=0,actions=0,limited=true;
+ const svc={guild:async()=>({members:{cache:members,fetch:async()=>{fetches++;if(limited)throw new Error('Request with opcode 8 was rate limited. Retry after 27 seconds.');return members;}}}),applyWebhook:async()=>{actions++;}};
+ const m={id:'a',guildId:'guild',channelId:sourceChannel,webhookId:'hook',embeds:[{title,description:'Sonic Savage zmienił(a) stopień pracownika Jan Kowalski z Pracownik na Starszy Pracownik.'}]};
+ await ingestWebhookLog(db,m,'guild');await ingestWebhookLog(db,{...m,id:'b'},'guild');
+ await processWebhookLogs(db,svc);assert.equal(actions,0);assert.equal(fetches,1);assert.equal((await pg.query('SELECT * FROM notifications')).rows.length,0);
+ assert.equal((await pg.query("SELECT status FROM imported_webhook_logs WHERE message_id='a'")).rows[0].status,'pending');
+ await processWebhookLogs(db,svc);assert.equal(fetches,1);
+ limited=false;await pg.query("UPDATE imported_webhook_logs SET retry_at=now()-interval '1 second'");
+ await processWebhookLogs(db,svc);assert.equal(actions,2);assert.equal(fetches,2);
+ await ingestWebhookLog(db,{...m,id:'c'},'guild');await processWebhookLogs(db,svc);assert.equal(actions,3);assert.equal(fetches,2);
+});
