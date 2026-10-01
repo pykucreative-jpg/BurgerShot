@@ -37,3 +37,5 @@ CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT 
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
+
+CREATE TABLE IF NOT EXISTS imported_webhook_logs(message_id text PRIMARY KEY,webhook_id text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());

@@ -18,7 +18,7 @@ Dostęp wyłącznie dla rangi kadry zapisanej w src/config.js. Zmiany i wykonawc
 3. Użyj Dockerfile, jednej repliki i wyłącz usypianie/serverless. Bez domeny, portu i HTTP healthcheck — to stale działający bot.
 4. Wdróż zmiany. W logach powinno być: BurgerShot gotowy — 9 komend.
 
-W Discord Developer Portal włącz Server Members Intent. Zaproś bota ze scopes bot i applications.commands. Uprawnienia: View Channels, Send Messages, Embed Links, Manage Roles, Manage Nicknames, Kick Members. Rola bota musi być ponad rangami i osobami, którymi zarządza. Message Content Intent nie jest potrzebny.
+W Discord Developer Portal włącz Server Members Intent. Zaproś bota ze scopes bot i applications.commands. Uprawnienia: View Channels, Send Messages, Embed Links, Manage Roles, Manage Nicknames, Kick Members. Rola bota musi być ponad rangami i osobami, którymi zarządza. Włącz Message Content Intent, aby odczytywać logi webhooka.
 
 ## Lokalnie
 Node >=22.12, npm ci, skopiuj .env.example do .env i uzupełnij, npm start. npm test oraz npm run check do kontroli. Nie publikuj .env ani tokenu. Baza musi być osobna dla tego bota.
@@ -32,3 +32,5 @@ Stały panel zarządu: kanał 1502336969605251102. Bot tworzy jedną wiadomość
 Generator plakietek na kanale 1292911416516415592: przycisk daje prywatnie /opis i /zmiennick dla pierwszego imienia oraz najwyższego stanowiska. Wymaga Firma Dc. Obsługuje 10 stanowisk, z SZEF dla najwyższej rangi. Nie zmienia rang ani pseudonimu na Discordzie. Bot wymaga dostępu do kanału, wysyłania wiadomości, embedów i historii.
 
 /nagrody [strona] — prywatny podgląd dla zarządu wszystkich nierozliczonych nagród, z liczbą cykli na osobę. Tylko odczyt, bez logowania i bez pingów. Niedzielny raport ma przycisk Rozliczono dostępny dla kadry: oznacza wyłącznie nagrody tego raportu, zachowuje historię i nowe cykle zebrane później.
+
+Import webhooków: nowe wiadomości i aktualizacje na kanale 1530621541325340682, wyłącznie od webhooków. Rozpoznaje dostarczone formaty BurgerShot: zmianę stopnia (10 rang), urlop bezterminowy i zwolnienie. Publikuje tylko na kanałach docelowych; źródła nie zmienia. Nie wywołuje zmian ról, pseudonimów, urlopów w bazie ani kicków. Nie importuje wcześniejszej historii ani logów z czasu wyłączenia bota. Nieznane/niejednoznaczne formaty pomija. Identyfikatory wiadomości deduplikowane w PostgreSQL; wysyłki korzystają z trwałej kolejki. Wymagane View Channel na źródle i Message Content Intent w Developer Portal. Kanał urlopów: 1502336468016828567.
