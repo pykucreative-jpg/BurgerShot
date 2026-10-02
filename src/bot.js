@@ -53,7 +53,7 @@ export function bot(db,client,svc,env){
 
  async function coursePanel(){
   const channel=await client.channels.fetch(config.coursePanelChannel);
-  const payload={embeds:[card({title:'🎡 BURGERSHOT • KURSY I NAGRODY',description:'━━━━━━━━━━━━━━━━━━━━\n\n🎟️ Co **20 kursów** otrzymujesz jedno losowanie.\n👔 Każda osoba korzysta z własnych, zdobytych losowań.\n\nKliknij przycisk — każdą odpowiedź zobaczysz **wyłącznie Ty**.\n\n━━━━━━━━━━━━━━━━━━━━'})],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('course:status').setLabel('📚 Mój postęp').setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId('course:spin').setLabel('🎡 Zakręć kołem').setStyle(ButtonStyle.Primary))]};
+  const payload={embeds:[card({title:'🎡 BURGERSHOT • KURSY I NAGRODY',description:'━━━━━━━━━━━━━━━━━━━━\n\n🎟️ Co **20 kursów** otrzymujesz jedno losowanie.\n👔 Każda osoba korzysta z własnych, zdobytych losowań.\n💰 Nagrody wypłaca Zarząd **w niedzielę**.\n\nKliknij przycisk — każdą odpowiedź zobaczysz **wyłącznie Ty**.\n\n━━━━━━━━━━━━━━━━━━━━'})],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('course:status').setLabel('📚 Mój postęp').setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId('course:spin').setLabel('🎡 Zakręć kołem').setStyle(ButtonStyle.Primary))]};
   await db.lock('course-panel',async()=>{
    const saved=(await db.q("SELECT message_id,channel_id FROM bot_panels WHERE name='course-wheel'")).rows[0];
    if(saved&&saved.channel_id===channel.id){try{const message=await channel.messages.fetch(saved.message_id);await message.edit(payload);return;}catch(err){if(err.code!==10008)throw err;}}
@@ -83,7 +83,7 @@ export function bot(db,client,svc,env){
       await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'📚 MÓJ POSTĘP KURSÓW',description:'Ten podgląd widzisz tylko Ty.',fields:{'🚗 Zaliczone Kursy #4':String(result.courses),'🎡 Dostępne losowania':String(result.spins),'📈 Do kolejnego losowania':`${result.remaining} kursów`}})]});
     }else if(i.customId==='course:spin'){
      const result=await svc.spinWheel(i.user.id);
-     await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 TWOJE KOŁO NAGRÓD',description:`Zakręcono kołem…\n\n🎁 **${result.prize}**\n\nTen wynik widzisz tylko Ty.`,fields:{'📚 Zaliczone Kursy #4':String(result.courses),'🎟️ Pozostałe losowania':String(result.spins)}})]});
+     await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 TWOJE KOŁO NAGRÓD',description:`Zakręcono kołem…\n\n🎁 **${result.prize}**\n\nNagrody wypłaca Zarząd w niedzielę. Ten wynik widzisz tylko Ty.`,fields:{'📚 Zaliczone Kursy #4':String(result.courses),'🎟️ Pozostałe losowania':String(result.spins)}})]});
     }
    }catch(err){await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 Panel kursów',description:err instanceof UserError?err.message:'Nie udało się sprawdzić konta. Spróbuj ponownie.'})]}).catch(()=>{});}
    return;
@@ -94,7 +94,7 @@ export function bot(db,client,svc,env){
    if(!i.inGuild()||i.guildId!==env.guildId)throw new UserError('Użyj komendy na serwerze BurgerShot.');
    if(i.commandName==='kolo'){
     const result=await svc.spinWheel(i.user.id);
-     await i.reply({embeds:[card({title:'🎡 KOŁO NAGRÓD BURGERSHOT',description:`<@${i.user.id}> zakręca kołem…\n\n🎁 **${result.prize}**`,fields:{'📚 Ukończone kursy':String(result.courses),'🎟️ Dostępne losowania':String(result.spins),'🍔 Status':result.staff?'Zarząd':'Firma DC'}})],allowedMentions:{users:[i.user.id],parse:[]}});return;
+     await i.reply({embeds:[card({title:'🎡 KOŁO NAGRÓD BURGERSHOT',description:`<@${i.user.id}> zakręca kołem…\n\n🎁 **${result.prize}**\n\nNagrody wypłaca Zarząd w niedzielę.`,fields:{'📚 Ukończone kursy':String(result.courses),'🎟️ Dostępne losowania':String(result.spins),'🍔 Status':result.staff?'Zarząd':'Firma DC'}})],allowedMentions:{users:[i.user.id],parse:[]}});return;
    }
    await i.deferReply({flags:MessageFlags.Ephemeral});await svc.authorize(i.user.id);
    if(i.commandName==='komenda'){
@@ -119,4 +119,3 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();await coursePanel();}};
 }
-
