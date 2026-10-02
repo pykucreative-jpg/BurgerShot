@@ -28,3 +28,18 @@ body{background:radial-gradient(circle at 78% 4%,#fffdf7 0,#f4f2ed 42%,#eeebe4 1
 .avatar-photo{object-fit:cover;overflow:hidden;border:1px solid #d6c6b8;background:#e7ded2}.sidebar .avatar-photo{border-color:#6a5146}
 dialog{background:#fbfaf6;border-color:#32251f;box-shadow:12px 12px 0 #b9342b33}.profile-metrics{background:#f5f1e9}.notice{background:#f9ede0}.login-form{background:var(--paper)}
 @media(max-width:650px){.sidebar{background:var(--espresso)}.sidebar nav a{border:0!important;color:#d7cabe}.brand-cover{min-height:220px}.brand-cover img{right:-72px;top:9px}.stats{gap:0}.stat,.stat:first-child{border:0!important;border-bottom:1px solid #d9d1c7!important;box-shadow:none}.panel-head{padding-left:16px;padding-right:16px}.activity,.quick{margin-left:16px;margin-right:16px}.table-wrap th:first-child,.table-wrap td:first-child{padding-left:16px}.banner{padding:25px 21px}}
+
+/* Visible human touches: paper grain, ink rules and slightly imperfect composition. */
+body:before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.38;background-image:radial-gradient(#6d56441c .55px,transparent .7px),radial-gradient(#ffffffa6 .55px,transparent .7px);background-size:7px 7px,11px 11px;background-position:0 0,3px 5px}
+.sidebar:before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--signal)}
+.sidebar nav a{position:relative}.sidebar nav a.active:before{content:'';position:absolute;width:9px;height:9px;left:-16px;background:#f25549;transform:rotate(45deg)}
+.topbar:after{content:'EDYCJA 01 · LOS SANTOS';position:absolute;right:48px;bottom:9px;color:#9a8a7c;font:7px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1.1px}
+.heading h1{position:relative;display:inline-block}.heading h1:after{content:'';display:block;width:44px;height:5px;margin-top:17px;background:var(--signal);transform:skewX(-18deg)}
+.section-rule{position:relative}.section-rule:after{content:'';position:absolute;right:0;bottom:-2px;width:33%;height:2px;background:var(--signal)}
+.stat{position:relative}.stat:nth-child(2){transform:translateY(5px)}.stat:nth-child(4){transform:translateY(-4px)}.stat:hover{transform:translateY(-3px)!important}.stat:after{content:'';position:absolute;top:11px;right:11px;width:5px;height:5px;border:1px solid #a99889;border-radius:50%}.stat:nth-child(3):after{border-color:#f48b80}
+.panel-head h3:before{content:'//';color:var(--signal);margin-right:7px;font:12px ui-monospace,SFMono-Regular,Consolas,monospace}.panel-head{position:relative}.panel-head:after{content:'';position:absolute;bottom:-1px;left:20px;width:56px;height:2px;background:var(--signal)}
+.activity:first-of-type .activity-icon{transform:rotate(-6deg)}.activity:nth-of-type(odd) .activity-icon{transform:rotate(5deg)}.activity-icon{transition:transform .2s ease}.activity:hover .activity-icon{transform:rotate(-10deg) scale(1.08)}
+.banner{position:relative;overflow:hidden}.banner:after{content:'BURGER SHOT · NIEDZIELA · NAGRODY';position:absolute;right:-54px;bottom:18px;color:#fff1e70f;font-size:30px;font-weight:800;letter-spacing:-1.5px;transform:rotate(-7deg);white-space:nowrap}
+.table-wrap{position:relative}.table-wrap:before{content:'SPIS ZESPOŁU';position:absolute;right:18px;top:9px;z-index:1;color:#a89380;font:7px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:1px}
+@media(max-width:650px){.topbar:after{display:none}.heading h1:after{margin-top:12px}.stat:nth-child(2),.stat:nth-child(4){transform:none}.panel-head:after{left:16px}.sidebar nav a.active:before{display:none}.table-wrap:before{display:none}}
+
