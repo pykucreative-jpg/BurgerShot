@@ -7,7 +7,8 @@ export function parseCourseLog(title,description){
  const heading=clean(title),body=clean(description);
  if(!/^BURGERSHOT\s+Zakończenie Kursu$/i.test(heading))return null;
  const match=/^Gracz\s+(.+?)\s+zakończył\s+Kurs\s+#(\d+)\s+dla\s+burgershot\.?$/i.exec(body);
- return match&&Number(match[2])===4?{player:match[1],courseNumber:4}:null;
+ const courseNumber=Number(match?.[2]);
+ return match&&(courseNumber===1||courseNumber===4)?{player:match[1],courseNumber}:null;
 }
 const canonical=value=>normalizedName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 const memberId=person=>person.user_id||person.id;
@@ -36,9 +37,11 @@ export async function processCourseLogs(db,svc){
    if(!current||current.status!=='pending')return;
    try{
     const targetId=await svc.courseMemberByName(item.event.player);
-    await svc.recordCourse({targetId,messageId:item.message_id,playerName:item.event.player,courseNumber:item.event.courseNumber});
+    if(item.event.courseNumber===1) await svc.markActiveCourse({targetId,messageId:item.message_id,playerName:item.event.player});
+    else await svc.recordCourse({targetId,messageId:item.message_id,playerName:item.event.player,courseNumber:item.event.courseNumber});
     await db.q("UPDATE imported_courses SET status='done' WHERE message_id=$1",[item.message_id]);
    }catch(err){
+    if(item.event.courseNumber===1){await db.q("UPDATE imported_courses SET status='ignored' WHERE message_id=$1",[item.message_id]);return;}
     await db.transaction(async tx=>{
      await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie zapisano kursu',`${escapeMarkdown(item.event.player)} · Kurs #4\n${escapeMarkdown(err.message)}\nSprawdź pseudonim tej osoby na Discordzie.`]);
      await tx.query("UPDATE imported_courses SET status='failed' WHERE message_id=$1",[item.message_id]);
@@ -47,3 +50,4 @@ export async function processCourseLogs(db,svc){
   });
  }
 }
+
