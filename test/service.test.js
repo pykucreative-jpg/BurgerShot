@@ -38,11 +38,11 @@ test('dwadzieścia kursów odblokowuje jedno koło dla Firma DC i Zarządu',asyn
  assert.equal((await db.q("SELECT count(*)::int AS count FROM logs WHERE category='kurs'")).rows[0].count,40);
  assert.equal((await db.q("SELECT count(*)::int AS count FROM logs WHERE category='kolo'")).rows[0].count,2);
 });
-test('reset kursów jest dostępny tylko dla Zarządu i czyści liczniki',async t=>{
+test('reset kursów jest dostępny tylko dla Zarządu i zachowuje losowania',async t=>{
  const {svc,db,actor,target}=await setup(t);
- await svc.recordCourse({targetId:target.id,messageId:'reset-kurs',playerName:'Jan Kowalski',courseNumber:4});
+ for(let n=1;n<=20;n++)await svc.recordCourse({targetId:target.id,messageId:'reset-kurs-'+n,playerName:'Jan Kowalski',courseNumber:4});
  const result=await svc.resetCourses(actor.id);assert.equal(result.count,1);
- const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[target.id])).rows[0];assert.equal(progress.courses_completed,0);assert.equal(progress.spins_available,0);assert.equal(progress.spins_used,0);
+ const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[target.id])).rows[0];assert.equal(progress.courses_completed,0);assert.equal(progress.spins_available,1);assert.equal(progress.spins_used,0);
  actor.roles.cache.clear();await assert.rejects(()=>svc.resetCourses(actor.id),/uprawnionej kadry/);
 });
 test('profil prywatny oraz status bota pokazują kursy i urlopy',async t=>{
