@@ -4,7 +4,6 @@ import {previewRewards} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
-import {sendDiploma} from './diplomas.js';
 import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown,ActionRowBuilder,ButtonBuilder,ButtonStyle} from 'discord.js';
 import {config,labels} from './config.js';
 import {UserError,parseLeaveDate,formatDate} from './domain.js';
@@ -48,12 +47,6 @@ export function bot(db,client,svc,env){
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
     for(const l of logs) {
       try {
-        if(l.category==='awans'&&l.status==='success'&&!l.diploma_delivered&&l.target_id){
-          const rank=String(l.details?.fields?.['🍟 Stanowisko']||'').split('→').at(-1).trim()||'NOWE STANOWISKO';
-          try{await sendDiploma(client,{userId:l.target_id,name:l.target_name||'Pracownik BurgerShota',rank,issuedAt:l.created_at});}
-          catch(err){console.error('Nie wysłano dyplomu',l.id,err.code||err.name);}
-          await db.q('UPDATE logs SET diploma_delivered=true WHERE id=$1',[l.id]);
-        }
         const ch=await client.channels.fetch(config.logs);
         const result=l.details;
          const subject=l.target_id?`👤 <@${l.target_id}> · ${escapeMarkdown(l.target_name||'')}`:'👥 Wszyscy pracownicy';
