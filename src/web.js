@@ -18,7 +18,7 @@ export async function sessionKey(db){
 }
 export function web(db,svc,discord,env,ready){
  const app=express();app.disable('x-powered-by');app.set('trust proxy',1);
- app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'"],imgSrc:["'self'",'data:'],connectSrc:["'self'"],formAction:["'self'"],upgradeInsecureRequests:env.production?[]:null}}}));
+ app.use(helmet({contentSecurityPolicy:{directives:{defaultSrc:["'self'"],scriptSrc:["'self'"],styleSrc:["'self'"],imgSrc:["'self'",'data:','https://cdn.discordapp.com'],connectSrc:["'self'"],formAction:["'self'"],upgradeInsecureRequests:env.production?[]:null}}}));
  app.use(express.json({limit:'16kb'}));
  app.get('/healthz',(req,res)=>res.status(ready()?200:503).json({ready:ready()}));
  const Store=connectPg(session);
@@ -41,7 +41,7 @@ export function web(db,svc,discord,env,ready){
    const profile=await fetch('https://discord.com/api/v10/users/@me',{headers:{Authorization:'Bearer '+token.access_token},signal:AbortSignal.timeout(15000)});
    if(!profile.ok)throw new Error('profile');const user=await profile.json();await svc.authorize(user.id);
    await new Promise((ok,no)=>req.session.regenerate(e=>e?no(e):ok()));
-   req.session.user={id:user.id,name:user.global_name||user.username};req.session.csrf=nonce();await save(req);res.redirect('/');
+   req.session.user={id:user.id,name:user.global_name||user.username,avatar_url:user.avatar?`https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=128`:null};req.session.csrf=nonce();await save(req);res.redirect('/');
   }catch{res.redirect('/?error=access');}
  });
  app.use('/api',rateLimit({windowMs:60000,limit:120,legacyHeaders:false,standardHeaders:'draft-8'}),async(req,res,next)=>{
