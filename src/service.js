@@ -1,12 +1,14 @@
 import { randomInt } from 'node:crypto';
 import { config } from './config.js';
 import {webhookRanks,webhookNotice} from './webhook-logs.js';
+import {matchCourseEmployee} from './course-wheel.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
   const wheelPrizes=['🔧 Naprawka · 10 000$', '📷 Aparat', '🔭 Obiektyw', '🎟️ Zdrapka', '🍔 Kupon BurgerShot'];
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
+  let courseMemberCache={at:0,members:new Map()};
   async function companyMembers() {
     if(Date.now()-companyCache.at<60000)return companyCache.items;
     const g=await guild();
@@ -19,6 +21,21 @@ export function service(db, client, env) {
     }).sort((a,b)=>a.ic_name.localeCompare(b.ic_name,'pl'));
     companyCache={at:Date.now(),items};
     return items;
+  }
+  async function courseMemberByName(name) {
+    const g=await guild();
+    if(Date.now()-courseMemberCache.at>=60000){
+      let members;
+      try {members=await g.members.fetch();}
+      catch {members=g.members.cache;}
+      courseMemberCache={at:Date.now(),members:new Map(members)};
+    }
+    const bracket=[...String(name).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1]||name;
+    try {
+      const searched=await g.members.search({query:bracket,limit:100});
+      for(const member of searched.values())courseMemberCache.members.set(member.id,member);
+    } catch {}
+    return matchCourseEmployee(name,[...courseMemberCache.members.values()]);
   }
   async function member(id) { return (await guild()).members.fetch({ user:id, force:true }); }
   async function authorize(id) {
@@ -38,7 +55,6 @@ export function service(db, client, env) {
     return db.lock(`user:${targetId}`,async()=>{
       if(courseNumber!==4)throw new UserError('Zapisywany może być wyłącznie Kurs #4.');
       const m=await member(targetId);
-      if(!m.roles.cache.has(config.employee))throw new UserError('Ta osoba nie ma rangi Firma DC.');
       return db.transaction(async tx=>{
         const imported=await tx.query("INSERT INTO course_events(message_id,user_id,player_name,course_number) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING message_id",[messageId,targetId,playerName,courseNumber]);
         if(!imported.rows.length)return {duplicate:true};
@@ -48,6 +64,9 @@ export function service(db, client, env) {
           spins_available=course_progress.spins_available+CASE WHEN (course_progress.courses_completed+1)%20=0 THEN 1 ELSE 0 END,
           last_course_at=now(),updated_at=now() RETURNING *`,[targetId])).rows[0];
         const unlocked=progress.courses_completed%20===0;
+        const remaining=20-(progress.courses_completed%20)||20;
+        await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,target_id,target_name,reason,details,status,channel_id)
+          VALUES($1,'kurs',$2,$3,$4,$5,$6,$7,'success',$8)`,[`course:${messageId}`,client.user.id,'Automatycznie · Kurs #4',targetId,m.displayName,'Pomyślnie dodano Kurs #4 do konta pracownika.',JSON.stringify({description:`✅ Dodano **Kurs #4**. Stan konta: **${progress.courses_completed} kursów**. Dostępne losowania: **${progress.spins_available}**. Do kolejnego losowania: **${remaining} kursów**.`}),config.logs]);
         return {courses:progress.courses_completed,spins:progress.spins_available,unlocked};
       });
     });
@@ -69,6 +88,12 @@ export function service(db, client, env) {
       });
       return result;
     });
+  }
+  async function courseStatus(userId) {
+    const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
+    if(!staff&&!employeeRole)throw new UserError('Panel kursów jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
+    const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[userId])).rows[0]||{courses_completed:0,spins_available:0,spins_used:0};
+    return {courses:progress.courses_completed,spins:staff?'∞':progress.spins_available,staff,remaining:20-(progress.courses_completed%20)||20};
   }
   async function checkRoles(m, ids) {
     if (!m.manageable) throw new UserError('Ranga bota musi być ponad rangami tej osoby. Nie można zmienić właściciela serwera.');
@@ -252,5 +277,5 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,employee,recordCourse,spinWheel,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,spinWheel,courseStatus,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
