@@ -14,8 +14,8 @@ async function setup(t){
  const members=new Map();
  function member(id,ids){const cache=new Collection(ids.map(x=>[x,roles.get(x)]));const m={id,user:{id,username:id===actorId?'Anna':'Jan',bot:false},displayName:id===actorId?'Anna Nowak':'Jan Kowalski',nickname:null,manageable:true,kickable:true,guild:{id:'333333333333333333'},roles:{cache,add:async id=>{for(const x of [].concat(id))cache.set(x,roles.get(x));},remove:async ids=>{for(const x of [].concat(ids))cache.delete(x);}},setNickname:async n=>{m.nickname=n;m.displayName=n||m.user.username;},kick:async()=>{members.delete(id);}};members.set(id,m);return m;}
  const actor=member(actorId,[config.staff]);const target=member(targetId,[config.ranks[0].id,config.employee]);
- const guild={members:{fetch:async({user})=>{if(!members.has(user))throw Object.assign(new Error('not member'),{code:10007});return members.get(user);}},roles:{fetch:async()=>roles,cache:roles}};
- const client={guilds:{fetch:async()=>guild},user:{id:'444444444444444444'}};
+ const guild={members:{fetch:async({user}={})=>{if(!user)return members;if(!members.has(user))throw Object.assign(new Error('not member'),{code:10007});return members.get(user);}},roles:{fetch:async()=>roles,cache:roles}};
+ const client={guilds:{fetch:async()=>guild},user:{id:'444444444444444444',setPresence:async presence=>{client.presence=presence;}}};
  const svc=service(db,client,{guildId:'333333333333333333'});
  let seq=0;const run=(kind,extra={})=>svc.run({kind,actorId,targetId,reason:'Powód testowy',channelId:config.logs,requestId:'test-'+seq++,...extra});
  return {db,svc,target,actor,roles,members,run};
@@ -44,6 +44,13 @@ test('reset kursów jest dostępny tylko dla Zarządu i czyści liczniki',async 
  const result=await svc.resetCourses(actor.id);assert.equal(result.count,1);
  const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[target.id])).rows[0];assert.equal(progress.courses_completed,0);assert.equal(progress.spins_available,0);assert.equal(progress.spins_used,0);
  actor.roles.cache.clear();await assert.rejects(()=>svc.resetCourses(actor.id),/uprawnionej kadry/);
+});
+test('profil prywatny oraz status bota pokazują kursy i urlopy',async t=>{
+ const {svc,target,db}=await setup(t);
+ await svc.recordCourse({targetId:target.id,messageId:'profile-kurs',playerName:'Jan Kowalski',courseNumber:4});
+ const profile=await svc.personalProfile(target.id);assert.equal(profile.courses.courses_completed,1);assert.equal(profile.employee.ic_name,'Jan Kowalski');
+ await db.q("INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id) VALUES($1,$2,now(),now()+interval '1 day','active',$3)",[target.id,'Jan Kowalski',config.logs]);
+ const status=await svc.refreshCoursePresence();assert.equal(status.leaves,1);assert.equal(status.total,1);
 });
 test('drugi minus odbiera rangi, wyrzuca i zachowuje historię',async t=>{
  const {run,target,members,db}=await setup(t);await run('minus');assert.ok(target.roles.cache.has(config.minus[0]));await run('minus');assert.equal(members.has(targetId),false);assert.equal(target.roles.cache.size,0);
@@ -102,3 +109,4 @@ test('degradacja kierownika zmiany odbiera zarząd w komendzie i imporcie',async
  assert.equal(target.roles.cache.has(config.staff),false);assert.equal(target.roles.cache.has(shift),false);assert.ok(target.roles.cache.has(config.ranks[2].id));
  await target.roles.add(config.staff);await run('degrad');assert.ok(target.roles.cache.has(config.staff));
 });
+
