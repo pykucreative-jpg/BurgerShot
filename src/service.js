@@ -87,7 +87,7 @@ export function service(db, client, env) {
     const memberIds=new Set(members.map(m=>m.user_id));
     const activeCount=activeRows.filter(row=>memberIds.has(row.user_id)).length;
     const total=members.length;
-    await client.user.setPresence({activities:[{name:`${activeCount}/${total} aktywnych • Kurs #1`,type:3}],status:'online'});
+    await client.user.setPresence({activities:[{name:`${activeCount}/${total} aktywnych`,type:3}],status:'online'});
     return {active:activeCount,total,expired:active.length};
   }
   async function spinWheel(userId) {
