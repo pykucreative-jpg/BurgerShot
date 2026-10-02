@@ -27,6 +27,14 @@ test('pełny cykl plusów usuwa stare rangi i zachowuje 5 logów',async t=>{
  assert.equal(logs.length,5);assert.equal(logs[4].details.after,0);
  assert.equal((await db.q('SELECT plus_count FROM employees')).rows[0].plus_count,0);
 });
+test('dwadzieścia kursów odblokowuje jedno koło dla Firma DC, a Zarząd nie ma limitu',async t=>{
+ const {svc,db}=await setup(t);
+ for(let n=1;n<=20;n++)await svc.recordCourse({targetId,messageId:'kurs-'+n,playerName:'Jan Kowalski',courseNumber:n});
+ let progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[targetId])).rows[0];assert.equal(progress.courses_completed,20);assert.equal(progress.spins_available,1);
+ const employeeSpin=await svc.spinWheel(targetId);assert.ok(employeeSpin.prize);assert.equal(employeeSpin.spins,0);
+ const staffSpin=await svc.spinWheel(actorId);assert.equal(staffSpin.staff,true);assert.equal(staffSpin.spins,'∞');
+ assert.equal((await db.q("SELECT count(*)::int AS count FROM logs WHERE category='kolo'")).rows[0].count,2);
+});
 test('drugi minus odbiera rangi, wyrzuca i zachowuje historię',async t=>{
  const {run,target,members,db}=await setup(t);await run('minus');assert.ok(target.roles.cache.has(config.minus[0]));await run('minus');assert.equal(members.has(targetId),false);assert.equal(target.roles.cache.size,0);
  const e=(await db.q('SELECT * FROM employees')).rows[0];assert.equal(e.status,'dismissed');assert.equal(e.minus_count,2);assert.equal((await db.q("SELECT * FROM logs WHERE category='minus'")).rows.length,2);

@@ -1,5 +1,6 @@
 import {web,sessionKey} from './web.js';
 import {processWebhookLogs} from './webhook-logs.js';
+import {processCourseLogs} from './course-wheel.js';
 import {courseReminder} from './courses.js';
 import {queueRewards} from './rewards.js';
 import {Events} from 'discord.js';
@@ -13,7 +14,7 @@ const queueCourses=courseReminder(db);
 let initialized=false,working=false,stopping=false,lastMaintenance=0;
  env.sessionSecret=await sessionKey(db);
  const httpServer=web(db,svc,discord,env,()=>initialized&&client.isReady()).listen(env.port,'0.0.0.0',()=>console.log('Panel BurgerShot gotowy.'));
-const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=15000){lastMaintenance=Date.now();await processWebhookLogs(db,svc);await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
+const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=15000){lastMaintenance=Date.now();await processWebhookLogs(db,svc);await processCourseLogs(db,svc);await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
 async function shutdown(code=0){if(stopping)return;stopping=true;clearInterval(timer);httpServer.close();client.destroy();await db.pool.end();process.exit(code);}
 client.once(Events.ClientReady,async()=>{try{await discord.syncCommands();await discord.panel();initialized=true;console.log('BurgerShot gotowy — komendy zsynchronizowane.');}catch(e){console.error('Uruchomienie',e.code||e.name);await shutdown(1);}});
 client.on(Events.Error,e=>console.error('Discord',e.code||e.name));

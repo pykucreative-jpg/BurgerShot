@@ -1,4 +1,5 @@
 import {ingestWebhookLog} from './webhook-logs.js';
+import {ingestCourseLog} from './course-wheel.js';
 import {previewRewards} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
@@ -10,11 +11,11 @@ export const makeClient=()=>new Client({intents:[GatewayIntentBits.Guilds,Gatewa
 export function card(result){const e=new EmbedBuilder().setColor(0xD62D2D).setTitle(result.title||'🍔 BurgerShot').setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
 export function commands(hidden=false){
  const base=(name)=>new SlashCommandBuilder().setName(name).setDescription(labels[name]).setDMPermission(false).addUserOption(o=>o.setName('osoba').setDescription('Pracownik').setRequired(true));
- return [new SlashCommandBuilder().setName('komenda').setDescription('Widoczność komend kadrowych — U/P').setDMPermission(false).addStringOption(o=>o.setName('tryb').setDescription('U — ukryj, P — pokaż').setRequired(true).addChoices({name:'U — ukryj',value:'U'},{name:'P — pokaż',value:'P'})),new SlashCommandBuilder().setName('nagrody').setDescription('💰 Podgląd nagród przed niedzielnym zestawieniem').setDMPermission(false).addIntegerOption(o=>o.setName('strona').setDescription('Strona listy nagród').setMinValue(1)),new SlashCommandBuilder().setName('zwolnij').setDescription('📋 Zwolnij jedną lub wiele osób').setDMPermission(false).addStringOption(o=>o.setName('osoby').setDescription('Oznaczenia @osób lub ID oddzielone spacją — maks. 20').setMaxLength(1000).setRequired(true)).addStringOption(o=>o.setName('powod').setDescription('Wspólny powód zwolnienia').setMaxLength(1000).setRequired(true)),base('zatrudnij').addStringOption(o=>o.setName('imie_i_nazwisko_ic').setDescription('Opcjonalnie — bez podania zachowamy pseudonim').setMaxLength(32)),...['plus','minus','awans','degrad','zdejmijurlop'].map(name=>base(name).addStringOption(o=>o.setName('powod').setDescription('Powód').setMaxLength(1000).setRequired(true))),base('urlop').addStringOption(o=>o.setName('do_kiedy').setDescription('DD.MM — bieżący rok, do końca dnia').setRequired(true))].map(c=>c.toJSON()).filter(c=>!hidden||!['awans','degrad','urlop','zdejmijurlop','zwolnij'].includes(c.name));
+ return [new SlashCommandBuilder().setName('komenda').setDescription('Widoczność komend kadrowych — U/P').setDMPermission(false).addStringOption(o=>o.setName('tryb').setDescription('U — ukryj, P — pokaż').setRequired(true).addChoices({name:'U — ukryj',value:'U'},{name:'P — pokaż',value:'P'})),new SlashCommandBuilder().setName('kolo').setDescription('🎡 Losowanie nagrody za kursy').setDMPermission(false),new SlashCommandBuilder().setName('nagrody').setDescription('💰 Podgląd nagród przed niedzielnym zestawieniem').setDMPermission(false).addIntegerOption(o=>o.setName('strona').setDescription('Strona listy nagród').setMinValue(1)),new SlashCommandBuilder().setName('zwolnij').setDescription('📋 Zwolnij jedną lub wiele osób').setDMPermission(false).addStringOption(o=>o.setName('osoby').setDescription('Oznaczenia @osób lub ID oddzielone spacją — maks. 20').setMaxLength(1000).setRequired(true)).addStringOption(o=>o.setName('powod').setDescription('Wspólny powód zwolnienia').setMaxLength(1000).setRequired(true)),base('zatrudnij').addStringOption(o=>o.setName('imie_i_nazwisko_ic').setDescription('Opcjonalnie — bez podania zachowamy pseudonim').setMaxLength(32)),...['plus','minus','awans','degrad','zdejmijurlop'].map(name=>base(name).addStringOption(o=>o.setName('powod').setDescription('Powód').setMaxLength(1000).setRequired(true))),base('urlop').addStringOption(o=>o.setName('do_kiedy').setDescription('DD.MM — bieżący rok, do końca dnia').setRequired(true))].map(c=>c.toJSON()).filter(c=>!hidden||!['awans','degrad','urlop','zdejmijurlop','zwolnij'].includes(c.name));
 }
 export function bot(db,client,svc,env){
- client.on(Events.MessageCreate,m=>ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import logu webhooka',err.code||err.name)));
- client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import aktualizacji webhooka',err.code||err.name));});
+ client.on(Events.MessageCreate,m=>{ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import logu webhooka',err.code||err.name));ingestCourseLog(db,m,env.guildId).catch(err=>console.error('Import kursu',err.code||err.name));});
+ client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial){ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import aktualizacji webhooka',err.code||err.name));ingestCourseLog(db,m,env.guildId).catch(err=>console.error('Import aktualizacji kursu',err.code||err.name));}});
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
@@ -63,6 +64,10 @@ export function bot(db,client,svc,env){
   if(!i.isChatInputCommand())return;
   try{
    if(!i.inGuild()||i.guildId!==env.guildId)throw new UserError('Użyj komendy na serwerze BurgerShot.');
+   if(i.commandName==='kolo'){
+    const result=await svc.spinWheel(i.user.id);
+    await i.reply({embeds:[card({title:'🎡 KOŁO NAGRÓD BURGERSHOT',description:`<@${i.user.id}> zakręca kołem…\n\n🎁 **${result.prize}**`,fields:{'📚 Ukończone kursy':String(result.courses),'🎟️ Dostępne losowania':String(result.spins),'🍔 Status':result.staff?'Zarząd — bez limitu':'Firma DC'}})],allowedMentions:{users:[i.user.id],parse:[]}});return;
+   }
    await i.deferReply({flags:MessageFlags.Ephemeral});await svc.authorize(i.user.id);
    if(i.commandName==='komenda'){
     const mode=i.options.getString('tryb',true);

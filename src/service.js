@@ -1,8 +1,10 @@
+import { randomInt } from 'node:crypto';
 import { config } from './config.js';
 import {webhookRanks,webhookNotice} from './webhook-logs.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
+  const wheelPrizes=['🔧 Naprawka · 10 000$', '📷 Aparat', '🔭 Obiektyw', '🎟️ Zdrapka', '🍔 Kupon BurgerShot'];
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   async function companyMembers() {
@@ -31,6 +33,42 @@ export function service(db, client, env) {
       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(user_id) DO UPDATE SET username=$2,rank=$4,plus_count=$5,minus_count=$6,updated_at=now()`,
     [m.id,m.user.username,m.displayName,rank,highest(config.plus,ids),highest(config.minus,ids)]);
     return (await db.q('SELECT user_id,username,ic_name,rank,plus_count,minus_count,status,hired_by,hired_by_name,hired_at FROM employees WHERE user_id=$1',[m.id])).rows[0];
+  }
+  async function recordCourse({targetId,messageId,playerName,courseNumber}) {
+    return db.lock(`user:${targetId}`,async()=>{
+      const m=await member(targetId);
+      if(!m.roles.cache.has(config.employee))throw new UserError('Ta osoba nie ma rangi Firma DC.');
+      return db.transaction(async tx=>{
+        const imported=await tx.query("INSERT INTO course_events(message_id,user_id,player_name,course_number) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING message_id",[messageId,targetId,playerName,courseNumber]);
+        if(!imported.rows.length)return {duplicate:true};
+        const progress=(await tx.query(`INSERT INTO course_progress(user_id,courses_completed,spins_available,last_course_at)
+          VALUES($1,1,0,now()) ON CONFLICT(user_id) DO UPDATE SET
+          courses_completed=course_progress.courses_completed+1,
+          spins_available=course_progress.spins_available+CASE WHEN (course_progress.courses_completed+1)%20=0 THEN 1 ELSE 0 END,
+          last_course_at=now(),updated_at=now() RETURNING *`,[targetId])).rows[0];
+        const unlocked=progress.courses_completed%20===0;
+        if(unlocked)await tx.query('INSERT INTO notifications(channel_id,user_id,title,body) VALUES($1,$2,$3,$4)',[config.courseChannel,targetId,'🎡 Koło nagród jest gotowe!',`Gratulacje! Masz już **${progress.courses_completed} kursów** na koncie. Wpisz **/kolo**, aby odebrać swoje losowanie. 🍔`]);
+        return {courses:progress.courses_completed,spins:progress.spins_available,unlocked};
+      });
+    });
+  }
+  async function spinWheel(userId) {
+    return db.lock(`wheel:${userId}`,async()=>{
+      const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
+      if(!staff&&!employeeRole)throw new UserError('Koło jest dostępne dla Zarządu oraz pracowników z rangą Firma DC.');
+      const result=await db.transaction(async tx=>{
+        let progress=(await tx.query('SELECT * FROM course_progress WHERE user_id=$1 FOR UPDATE',[userId])).rows[0];
+        if(!progress)progress={courses_completed:0,spins_available:0,spins_used:0};
+        if(!staff&&progress.spins_available<1)throw new UserError(`Do następnego losowania potrzebujesz 20 kursów. Masz obecnie ${progress.courses_completed}/20.`);
+        const prize=wheelPrizes[randomInt(wheelPrizes.length)];
+        const spin=(await tx.query('INSERT INTO wheel_spins(user_id,prize) VALUES($1,$2) RETURNING id',[userId,prize])).rows[0];
+        if(!staff)progress=(await tx.query('UPDATE course_progress SET spins_available=spins_available-1,spins_used=spins_used+1,updated_at=now() WHERE user_id=$1 RETURNING *',[userId])).rows[0];
+        await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,target_id,target_name,reason,details,status,channel_id)
+          VALUES($1,'kolo',$2,$3,$2,$3,$4,$5,'success',$6)`,[`wheel:${spin.id}`,m.id,m.displayName,staff?'Losowanie Zarządu':'Nagroda za 20 ukończonych kursów',JSON.stringify({description:`🎁 **Wylosowana nagroda:** ${prize}`,prize,courses:progress.courses_completed}),config.logs]);
+        return {prize,courses:progress.courses_completed,spins:staff?'∞':progress.spins_available,staff};
+      });
+      return result;
+    });
   }
   async function checkRoles(m, ids) {
     if (!m.manageable) throw new UserError('Ranga bota musi być ponad rangami tej osoby. Nie można zmienić właściciela serwera.');
@@ -214,5 +252,5 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,authorize,employee,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,employee,recordCourse,spinWheel,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }

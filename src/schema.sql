@@ -32,6 +32,24 @@ ALTER TABLE notifications ADD COLUMN IF NOT EXISTS role_id text;
 
 CREATE TABLE IF NOT EXISTS course_reminders (day date PRIMARY KEY);
 
+CREATE TABLE IF NOT EXISTS imported_courses (
+ message_id text PRIMARY KEY, webhook_id text NOT NULL, event jsonb NOT NULL,
+ status text NOT NULL DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS course_progress (
+ user_id text PRIMARY KEY, courses_completed integer NOT NULL DEFAULT 0,
+ spins_available integer NOT NULL DEFAULT 0, spins_used integer NOT NULL DEFAULT 0,
+ last_course_at timestamptz, updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS wheel_spins (
+ id bigserial PRIMARY KEY, user_id text NOT NULL, prize text NOT NULL,
+ course_event_id text REFERENCES imported_courses(message_id), created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS course_events (
+ message_id text PRIMARY KEY, user_id text NOT NULL, player_name text NOT NULL,
+ course_number integer NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT NULL,message_id text NOT NULL);
 
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;

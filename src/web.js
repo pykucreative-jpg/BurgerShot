@@ -68,17 +68,16 @@ export function web(db,svc,discord,env,ready){
   if(dismissed||!svc.companyMembers){
    const r=await db.q(`SELECT e.*,l.ends_at,l.status AS leave_status FROM employees e LEFT JOIN leaves l ON l.user_id=e.user_id AND l.status IN ('active','scheduled','starting','ending') WHERE e.status=$1 AND concat_ws(' ',e.ic_name,e.username,e.user_id,e.hired_by_name) ILIKE $2 ORDER BY e.ic_name,e.user_id LIMIT 31 OFFSET $3`,[dismissed?'dismissed':'active',search(req.query.q),page(req.query.page)*30]);return res.json({items:r.rows.slice(0,30),more:r.rows.length>30,source:'history'});
   }
-  const [live,stored,leaves]=await Promise.all([svc.companyMembers(),db.q("SELECT * FROM employees WHERE status='active'"),db.q("SELECT user_id,ends_at,status AS leave_status FROM leaves WHERE status IN ('active','scheduled','starting','ending')")]);
-  const byId=new Map(stored.rows.map(e=>[e.user_id,e])),leaveById=new Map(leaves.rows.map(l=>[l.user_id,l]));
-  const all=live.map(m=>({...m,...byId.get(m.user_id),...m,status:'active',...(leaveById.get(m.user_id)||{})})).filter(m=>matches(m,String(req.query.q||'').slice(0,100)));
+  const [live,stored,leaves,courses]=await Promise.all([svc.companyMembers(),db.q("SELECT * FROM employees WHERE status='active'"),db.q("SELECT user_id,ends_at,status AS leave_status FROM leaves WHERE status IN ('active','scheduled','starting','ending')"),db.q('SELECT user_id,courses_completed,spins_available FROM course_progress')]);
+  const byId=new Map(stored.rows.map(e=>[e.user_id,e])),leaveById=new Map(leaves.rows.map(l=>[l.user_id,l])),courseById=new Map(courses.rows.map(c=>[c.user_id,c]));
+  const all=live.map(m=>({...m,...byId.get(m.user_id),...m,status:'active',...(leaveById.get(m.user_id)||{}),...(courseById.get(m.user_id)||{courses_completed:0,spins_available:0})})).filter(m=>matches(m,String(req.query.q||'').slice(0,100)));
   const offset=page(req.query.page)*30;res.json({items:all.slice(offset,offset+30),more:all.length>offset+30,source:'discord',total:all.length});
  });
  app.get('/api/employees/:id',async(req,res)=>{
   let employee=(await db.q('SELECT * FROM employees WHERE user_id=$1',[req.params.id])).rows[0];
   if(svc.companyMembers){const live=(await svc.companyMembers()).find(m=>m.user_id===req.params.id);if(live)employee={...live,...employee,...live,status:'active'};}
   if(!employee)return res.status(404).json({error:'Nie znaleziono pracownika.'});
-  const logs=(await db.q('SELECT * FROM logs WHERE target_id=$1 ORDER BY created_at DESC LIMIT 25',[req.params.id])).rows;
-  const leave=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending')",[req.params.id])).rows[0];res.json({employee,logs,leave});
+  const [logs,leave,courses]=await Promise.all([db.q('SELECT * FROM logs WHERE target_id=$1 ORDER BY created_at DESC LIMIT 25',[req.params.id]),db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending')",[req.params.id]),db.q('SELECT * FROM course_progress WHERE user_id=$1',[req.params.id])]);res.json({employee,logs:logs.rows,leave:leave.rows[0],courses:courses.rows[0]||{courses_completed:0,spins_available:0,spins_used:0}});
  });
  app.get('/api/logs',async(req,res)=>{
   const r=await db.q("SELECT * FROM logs WHERE ($1='' OR category=$1) AND concat_ws(' ',actor_id,actor_name,target_id,target_name,reason) ILIKE $2 ORDER BY created_at DESC,id DESC LIMIT 31 OFFSET $3",[Object.hasOwn(labels,req.query.category||'')?req.query.category:'',search(req.query.q),page(req.query.page)*30]);res.json({items:r.rows.slice(0,30),more:r.rows.length>30});
