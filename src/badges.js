@@ -2,16 +2,20 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,escapeMarkdown} 
 import {config} from './config.js';
 import {UserError} from './domain.js';
 const channelId='1292911416516415592';
-export const badgeRanks=config.ranks.filter(r=>r.id!=='1292911416285728792').map((rank,index)=>({...rank,
- code:['R','N','P','S.P','S','D.S'][index],
- color:['~c~','~HC_177~','~o~','~y~','~HC_15~','~y~'][index],
- label:['REKRUT','NOWICJUSZ','PRACOWNIK','STARSZY PRACOWNIK','SPECJALISTA','DOS SPECJALISTA'][index]
-})).concat([
- {id:'1292911416285728792',name:'Kierownik zmiany',code:'K.Z',color:'~b~',label:'KIEROWNIK ZMIANY'},
- {id:'1292911416306569307',name:'Kierownik',code:'K',color:'~p~',label:'KIEROWNIK'},
- {id:'1391129116199358545',name:'Menadżer',code:'M',color:'~HC_171~',label:'MENADŻER'},
- {id:'1292911416323342399',name:'Szef',code:'SZEF',color:'~HC_172~',label:'SZEF'}
-]);
+const badgeMeta={
+ '1524197367325134878':['R','~c~','REKRUT'],
+ '1292911416264622202':['N','~HC_177~','NOWICJUSZ'],
+ '1519069368602988817':['P','~o~','PRACOWNIK'],
+ '1292911416285728789':['S.P','~y~','STARSZY PRACOWNIK'],
+ '1292911416285728790':['S','~HC_15~','SPECJALISTA'],
+ '1519067835769294858':['D.S','~y~','DOS SPECJALISTA'],
+ '1292911416285728792':['K.Z','~b~','KIEROWNIK ZMIANY'],
+ '1292911416306569307':['K','~p~','KIEROWNIK'],
+ '1391129116199358545':['M','~HC_171~','MENADŻER'],
+ '1292911416323342398':['Z.S','~HC_172~','ZASTĘPCA SZEFA'],
+ '1292911416323342399':['SZEF','~HC_172~','SZEFOWA']
+};
+export const badgeRanks=config.ranks.map(rank=>({id:rank.id,name:rank.name,code:badgeMeta[rank.id][0],color:badgeMeta[rank.id][1],label:badgeMeta[rank.id][2]}));
 export function badgeFor(member){
  if(!member.roles.cache.has(config.employee))throw new UserError('Generator jest dostępny dla pracowników z rangą Firma Dc.');
  const rank=[...badgeRanks].reverse().find(r=>member.roles.cache.has(r.id));
@@ -42,3 +46,4 @@ export function badges(db,client,svc,card){
  }
  return {handle,panel};
 }
+
