@@ -46,6 +46,16 @@ export function bot(db,client,svc,env){
     }
   }
 
+ async function coursePanel(){
+  const channel=await client.channels.fetch(config.coursePanelChannel);
+  const payload={embeds:[card({title:'🎡 BURGERSHOT • KURSY I NAGRODY',description:'━━━━━━━━━━━━━━━━━━━━\n\n🚗 Zaliczone wpisy **Kurs #4** liczą się do Twojego konta.\n🎟️ Co **20 kursów** otrzymujesz jedno losowanie.\n👔 Zarząd korzysta z koła bez limitu.\n\nKliknij przycisk — każdą odpowiedź zobaczysz **wyłącznie Ty**.\n\n━━━━━━━━━━━━━━━━━━━━'})],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('course:status').setLabel('📚 Mój postęp').setStyle(ButtonStyle.Secondary),new ButtonBuilder().setCustomId('course:spin').setLabel('🎡 Zakręć kołem').setStyle(ButtonStyle.Primary))]};
+  await db.lock('course-panel',async()=>{
+   const saved=(await db.q("SELECT message_id,channel_id FROM bot_panels WHERE name='course-wheel'")).rows[0];
+   if(saved&&saved.channel_id===channel.id){try{const message=await channel.messages.fetch(saved.message_id);await message.edit(payload);return;}catch(err){if(err.code!==10008)throw err;}}
+   const message=await channel.send(payload);
+   await db.q("INSERT INTO bot_panels(name,channel_id,message_id) VALUES('course-wheel',$1,$2) ON CONFLICT(name) DO UPDATE SET channel_id=$1,message_id=$2",[channel.id,message.id]);
+  });
+ }
  client.on(Events.InteractionCreate,async i=>{
   if(i.customId?.startsWith('rewards:settle:')){
    if(!i.inGuild()||i.guildId!==env.guildId)return;
@@ -60,6 +70,19 @@ export function bot(db,client,svc,env){
    return;
   }
   if(i.customId==='badges:generate'){if(!i.inGuild()||i.guildId!==env.guildId)return;await badgeGenerator.handle(i);return;}
+  if(i.customId?.startsWith('course:')){
+   if(!i.inGuild()||i.guildId!==env.guildId)return;
+   try{
+    if(i.customId==='course:status'){
+     const result=await svc.courseStatus(i.user.id);
+     await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'📚 MÓJ POSTĘP KURSÓW',description:'Ten podgląd widzisz tylko Ty.',fields:{'🚗 Zaliczone Kursy #4':String(result.courses),'🎡 Dostępne losowania':String(result.spins),'📈 Do kolejnego losowania':result.staff?'Zarząd — bez limitu':`${result.remaining} kursów`}})]});
+    }else if(i.customId==='course:spin'){
+     const result=await svc.spinWheel(i.user.id);
+     await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 TWOJE KOŁO NAGRÓD',description:`Zakręcono kołem…\n\n🎁 **${result.prize}**\n\nTen wynik widzisz tylko Ty.`,fields:{'📚 Zaliczone Kursy #4':String(result.courses),'🎟️ Pozostałe losowania':String(result.spins)}})]});
+    }
+   }catch(err){await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 Panel kursów',description:err instanceof UserError?err.message:'Nie udało się sprawdzić konta. Spróbuj ponownie.'})]}).catch(()=>{});}
+   return;
+  }
   if(i.customId?.startsWith('tablet:')){if(!i.inGuild()||i.guildId!==env.guildId)return;await staffTablet.handle(i);return;}
   if(!i.isChatInputCommand())return;
   try{
@@ -88,5 +111,5 @@ export function bot(db,client,svc,env){
    const result=await svc.run({kind:i.commandName,actorId:i.user.id,targetId:target.id,reason:i.options.getString('powod')||'',channelId:i.channelId,requestId:i.id,icName:i.options.getString('imie_i_nazwisko_ic'),endsAt:i.commandName==='urlop'?parseLeaveDate(i.options.getString('do_kiedy'),{end:true}):undefined});
    try{await publish(i.commandName,{embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
- });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();}};
+ });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();await coursePanel();}};
 }
