@@ -36,6 +36,7 @@ export function service(db, client, env) {
   }
   async function recordCourse({targetId,messageId,playerName,courseNumber}) {
     return db.lock(`user:${targetId}`,async()=>{
+      if(courseNumber!==4)throw new UserError('Zapisywany może być wyłącznie Kurs #4.');
       const m=await member(targetId);
       if(!m.roles.cache.has(config.employee))throw new UserError('Ta osoba nie ma rangi Firma DC.');
       return db.transaction(async tx=>{
@@ -47,7 +48,6 @@ export function service(db, client, env) {
           spins_available=course_progress.spins_available+CASE WHEN (course_progress.courses_completed+1)%20=0 THEN 1 ELSE 0 END,
           last_course_at=now(),updated_at=now() RETURNING *`,[targetId])).rows[0];
         const unlocked=progress.courses_completed%20===0;
-        if(unlocked)await tx.query('INSERT INTO notifications(channel_id,user_id,title,body) VALUES($1,$2,$3,$4)',[config.courseChannel,targetId,'🎡 Koło nagród jest gotowe!',`Gratulacje! Masz już **${progress.courses_completed} kursów** na koncie. Wpisz **/kolo**, aby odebrać swoje losowanie. 🍔`]);
         return {courses:progress.courses_completed,spins:progress.spins_available,unlocked};
       });
     });
