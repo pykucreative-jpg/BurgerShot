@@ -5,7 +5,8 @@ import {matchCourseEmployee} from './course-wheel.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
-  const wheelPrizes=['🔧 Naprawka · 10 000$', '📷 Aparat', '🔭 Obiektyw', '🎟️ Zdrapka'];
+  const wheelPrizes=[['🔧 Naprawka',225],['💵 10 000$',100],['📷 Aparat',225],['🔭 Obiektyw',225],['🎟️ Zdrapka',225]];
+  const wheelPrize=()=>{let roll=randomInt(1000);for(const [prize,weight] of wheelPrizes){if(roll<weight)return prize;roll-=weight;}return wheelPrizes.at(-1)[0];};
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   let courseMemberCache={at:0,members:new Map()};
@@ -79,7 +80,7 @@ export function service(db, client, env) {
         let progress=(await tx.query('SELECT * FROM course_progress WHERE user_id=$1 FOR UPDATE',[userId])).rows[0];
         if(!progress)progress={courses_completed:0,spins_available:0,spins_used:0};
         if(progress.spins_available<1)throw new UserError(`Do następnego losowania potrzebujesz 20 kursów. Masz obecnie ${progress.courses_completed}/20.`);
-        const prize=wheelPrizes[randomInt(wheelPrizes.length)];
+        const prize=wheelPrize();
         const spin=(await tx.query('INSERT INTO wheel_spins(user_id,prize) VALUES($1,$2) RETURNING id',[userId,prize])).rows[0];
         progress=(await tx.query('UPDATE course_progress SET spins_available=spins_available-1,spins_used=spins_used+1,updated_at=now() WHERE user_id=$1 RETURNING *',[userId])).rows[0];
         await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,target_id,target_name,reason,details,status,channel_id)
