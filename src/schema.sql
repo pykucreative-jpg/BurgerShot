@@ -49,6 +49,11 @@ CREATE TABLE IF NOT EXISTS course_events (
  message_id text PRIMARY KEY, user_id text NOT NULL, player_name text NOT NULL,
  course_number integer NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE IF NOT EXISTS active_course_members (
+ user_id text PRIMARY KEY, player_name text NOT NULL, last_seen_at timestamptz NOT NULL DEFAULT now(),
+ expires_at timestamptz NOT NULL
+);
+CREATE INDEX IF NOT EXISTS active_course_members_expires_at ON active_course_members(expires_at);
 
 CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT NULL,message_id text NOT NULL);
 
@@ -69,3 +74,4 @@ AND NOT EXISTS (SELECT 1 FROM logs WHERE request_id='webhook:'||i.message_id)
 AND NOT EXISTS (SELECT 1 FROM imported_webhook_logs newer WHERE newer.event->>'person'=i.event->>'person' AND newer.created_at>i.created_at);
 
 CREATE TABLE IF NOT EXISTS bot_settings(key text PRIMARY KEY,value text NOT NULL);
+
