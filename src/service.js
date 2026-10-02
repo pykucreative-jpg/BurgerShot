@@ -72,6 +72,24 @@ export function service(db, client, env) {
       });
     });
   }
+  async function markActiveCourse({targetId,playerName}) {
+    const m=await member(targetId);
+    if(!m.roles.cache.has(config.employee))return {tracked:false};
+    await db.q(`INSERT INTO active_course_members(user_id,player_name,last_seen_at,expires_at)
+      VALUES($1,$2,now(),now()+interval '10 minutes')
+      ON CONFLICT(user_id) DO UPDATE SET player_name=$2,last_seen_at=now(),expires_at=now()+interval '10 minutes'`,[targetId,playerName]);
+    return {tracked:true};
+  }
+  async function refreshCoursePresence() {
+    const members=await companyMembers();
+    const active=(await db.q("DELETE FROM active_course_members WHERE expires_at<=now() RETURNING user_id")).rows;
+    const activeRows=(await db.q("SELECT user_id FROM active_course_members WHERE expires_at>now()")).rows;
+    const memberIds=new Set(members.map(m=>m.user_id));
+    const activeCount=activeRows.filter(row=>memberIds.has(row.user_id)).length;
+    const total=members.length;
+    await client.user.setPresence({activities:[{name:`${activeCount}/${total} aktywnych • Kurs #1`,type:3}],status:'online'});
+    return {active:activeCount,total,expired:active.length};
+  }
   async function spinWheel(userId) {
     return db.lock(`wheel:${userId}`,async()=>{
       const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
@@ -299,5 +317,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,spinWheel,courseStatus,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
+
