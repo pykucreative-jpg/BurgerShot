@@ -2,7 +2,7 @@ import {ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,escapeMarkdown} 
 import {config} from './config.js';
 import {UserError} from './domain.js';
 const channelId='1292911416516415592';
-export const badgeRanks=config.ranks.map((rank,index)=>({...rank,
+export const badgeRanks=config.ranks.filter(r=>r.id!=='1292911416285728792').map((rank,index)=>({...rank,
  code:['R','N','P','S.P','S','D.S'][index],
  color:['~c~','~HC_177~','~o~','~y~','~HC_15~','~y~'][index],
  label:['REKRUT','NOWICJUSZ','PRACOWNIK','STARSZY PRACOWNIK','SPECJALISTA','DOS SPECJALISTA'][index]

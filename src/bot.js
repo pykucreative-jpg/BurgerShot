@@ -19,6 +19,12 @@ export function bot(db,client,svc,env){
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
  const staffTablet=tablet(db,svc,card,publish,destination);
+ async function setVisibility(hidden){
+  await db.lock('command-visibility',async()=>{
+   await (await svc.guild()).commands.set(commands(hidden));
+   await db.q("INSERT INTO bot_settings(key,value) VALUES('commands_hidden',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[hidden?'true':'false']);
+  });
+ }
  async function deliveries(){
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
     for(const l of logs) {
@@ -61,10 +67,7 @@ export function bot(db,client,svc,env){
    if(i.commandName==='komenda'){
     const mode=i.options.getString('tryb',true);
     if(!['U','P'].includes(mode))throw new UserError('Wybierz U albo P.');
-    await db.lock('command-visibility',async()=>{
-     await (await svc.guild()).commands.set(commands(mode==='U'));
-     await db.q("INSERT INTO bot_settings(key,value) VALUES('commands_hidden',$1) ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value",[mode==='U'?'true':'false']);
-    });
+    await setVisibility(mode==='U');
     await i.editReply({embeds:[card({title:mode==='U'?'🙈 Komendy ukryte':'👀 Komendy widoczne',description:'/awans, /degrad, /urlop, /zdejmijurlop i /zwolnij. Zmiana dotyczy listy komend na całym serwerze. Discord może potrzebować chwili na odświeżenie.'})]});return;
    }
    if(i.commandName==='nagrody'){await i.editReply({embeds:[card(await previewRewards(db,i.options.getInteger('strona')||1))],allowedMentions:{parse:[]}});return;}
@@ -80,5 +83,5 @@ export function bot(db,client,svc,env){
    const result=await svc.run({kind:i.commandName,actorId:i.user.id,targetId:target.id,reason:i.options.getString('powod')||'',channelId:i.channelId,requestId:i.id,icName:i.options.getString('imie_i_nazwisko_ic'),endsAt:i.commandName==='urlop'?parseLeaveDate(i.options.getString('do_kiedy'),{end:true}):undefined});
    try{await publish(i.commandName,{embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
- });return {commands,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();}};
+ });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();}};
 }

@@ -10,5 +10,8 @@ export function environment(env=process.env){
  for(const key of ['DISCORD_TOKEN','DISCORD_CLIENT_ID','DISCORD_GUILD_ID','DATABASE_URL'])if(!env[key])throw new Error('Uzupełnij zmienną '+key);
  for(const key of ['DISCORD_CLIENT_ID','DISCORD_GUILD_ID'])if(!/^\d{17,20}$/.test(env[key]))throw new Error('Nieprawidłowe '+key);
  if(env.DISCORD_GUILD_ID!=='1292911416248111247')throw new Error('To konfiguracja serwera BurgerShot. Sprawdź DISCORD_GUILD_ID.');
- return {token:env.DISCORD_TOKEN,clientId:env.DISCORD_CLIENT_ID,guildId:env.DISCORD_GUILD_ID,databaseUrl:env.DATABASE_URL};
+ const production=env.NODE_ENV==='production'||Boolean(env.RAILWAY_ENVIRONMENT_ID);
+ const publicUrl=env.PUBLIC_URL?.replace(/\/$/,'')||(env.RAILWAY_PUBLIC_DOMAIN?'https://'+env.RAILWAY_PUBLIC_DOMAIN:'');
+ if(publicUrl){const u=new URL(publicUrl);if(u.origin!==publicUrl||(production&&u.protocol!=='https:'))throw new Error('PUBLIC_URL musi być samym adresem HTTPS bez ścieżki.');}
+ return {production,publicUrl,clientSecret:env.DISCORD_CLIENT_SECRET,port:Number(env.PORT||3000),token:env.DISCORD_TOKEN,clientId:env.DISCORD_CLIENT_ID,guildId:env.DISCORD_GUILD_ID,databaseUrl:env.DATABASE_URL};
 }

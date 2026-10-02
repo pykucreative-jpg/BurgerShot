@@ -15,8 +15,8 @@ Dostęp wyłącznie dla rangi kadry zapisanej w src/config.js. Zmiany i wykonawc
 ## Railway
 1. Utwórz osobny projekt, usługę z tego repozytorium oraz PostgreSQL o nazwie Postgres.
 2. W usłudze bota ustaw DISCORD_TOKEN, DISCORD_CLIENT_ID, DISCORD_GUILD_ID=1292911416248111247, DATABASE_URL jako odwołanie do Postgres.DATABASE_URL, NODE_ENV=production.
-3. Użyj Dockerfile, jednej repliki i wyłącz usypianie/serverless. Bez domeny, portu i HTTP healthcheck — to stale działający bot.
-4. Wdróż zmiany. W logach powinno być: BurgerShot gotowy — 9 komend.
+3. Użyj Dockerfile, jednej repliki i wyłącz usypianie/serverless. Panel WWW działa na porcie PORT (domyślnie 3000); domenę HTTPS można wygenerować w Railway. Bot wymaga stałego działania.
+4. Wdróż zmiany. W logach powinno być: BurgerShot gotowy — komendy zsynchronizowane.
 
 W Discord Developer Portal włącz Server Members Intent. Zaproś bota ze scopes bot i applications.commands. Uprawnienia: View Channels, Send Messages, Embed Links, Manage Roles, Manage Nicknames, Kick Members. Rola bota musi być ponad rangami i osobami, którymi zarządza. Włącz Message Content Intent, aby odczytywać logi webhooka.
 
@@ -38,3 +38,10 @@ Import webhooków: nowe logi na kanale 1530621541325340682 powodują zmianę ran
 /komenda tryb:U ukrywa globalnie /awans, /degrad, /urlop, /zdejmijurlop i /zwolnij z listy slash. tryb:P je przywraca. Wymaga rangi zarządu. Ustawienie zapisane w bazie i odtwarzane przy restarcie. Tablet, import logów i działania kadrowe zachowują dotychczasowe zasady.
 
 Hierarchia komend i tabletu: Rekrut → Nowicjusz → Pracownik → Starszy pracownik → Specjalista → Doświadczony Specjalista → Kierownik zmiany (1292911416285728792). Kierownik (1292911416306569307) jest wyżej i pozostaje poza automatycznym awansem o jeden stopień.
+
+## Panel administracyjny WWW
+Widoki: przegląd, profile pracowników, filtrowana historia, urlopy, nagrody i widoczność komend U/P. Działania korzystają z tej samej obsługi co Discord. Dostęp tylko przez OAuth2 Discord i aktualną rangę Zarząd 1295044894825381950. Dane API nie są publiczne.
+
+Railway: wygeneruj domenę dla portu 3000 (lub wartości PORT). Ustaw DISCORD_CLIENT_SECRET z OAuth2 aplikacji bota. PUBLIC_URL może być pominięte, jeśli Railway ustawia RAILWAY_PUBLIC_DOMAIN. W Discord Developer Portal → OAuth2 → Redirects dodaj https://TWOJA-DOMENA/auth/callback. Nie publikuj sekretu w repo ani czacie. Klucz sesji jest generowany i trwale przechowywany w bazie; nie trzeba ustawiać SESSION_SECRET. /healthz zwraca gotowość bota.
+
+Podgląd lokalny: node scripts/preview-web.mjs, http://127.0.0.1:3100/demo. Wyłącznie lokalne dane demonstracyjne, bez dostępu do serwera Discord; skrypt nie jest kopiowany do obrazu produkcyjnego.

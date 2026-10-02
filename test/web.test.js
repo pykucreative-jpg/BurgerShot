@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {PGlite} from '@electric-sql/pglite';
+import {readFile} from 'node:fs/promises';
+import {createHmac} from 'node:crypto';
+import {web,sessionKey} from '../src/web.js';
+test('panel chroni dane, sprawdza aktualną rangę i CSRF; wszystkie widoki czytają bazę',async t=>{
+ const pg=new PGlite();await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));await pg.exec(await readFile(new URL('../node_modules/connect-pg-simple/table.sql',import.meta.url),'utf8'));
+ const q=async(s,p=[])=>{const r=await pg.query(s,p);return {...r,rowCount:r.affectedRows??r.rows.length};};
+ const db={q,pool:{query:q}};let allowed=true,actions=0,visibility;
+ const svc={authorize:async()=>{if(!allowed)throw Error('revoked');},run:async()=>{actions++;return {title:'OK',description:'Zapisano'};},notify:async()=>{}};
+ const secret=await sessionKey(db);assert.equal(await sessionKey(db),secret);
+ const env={sessionSecret:secret,production:false,publicUrl:'',clientId:'test',guildId:'test'};
+ const app=web(db,svc,{setVisibility:async v=>{visibility=v;}},env,()=>true);
+ const server=app.listen(0,'127.0.0.1');await new Promise(ok=>server.once('listening',ok));t.after(async()=>{await new Promise(ok=>server.close(ok));await pg.close();});
+ const base='http://127.0.0.1:'+server.address().port;env.publicUrl=base;
+ const sid='web-test',csrf='csrf';const signature=createHmac('sha256',secret).update(sid).digest('base64').replace(/=+$/,'');
+ const cookie='bs.sid='+encodeURIComponent('s:'+sid+'.'+signature);
+ await q("INSERT INTO session(sid,sess,expire) VALUES($1,$2,now()+interval '1 hour')",[sid,JSON.stringify({cookie:{maxAge:3600000,httpOnly:true,secure:false,sameSite:'lax'},user:{id:'123',name:'Anna'},csrf})]);
+ for(const path of ['/me','/overview','/employees','/logs','/leaves','/rewards','/settings'])assert.equal((await fetch(base+'/api'+path)).status,401,path);
+ await q("INSERT INTO employees(user_id,username,ic_name,hired_by_name) VALUES('333','jan.k','Jan Kowalski','Anna')");
+ await q("INSERT INTO logs(category,actor_id,actor_name,target_id,target_name,reason,status) VALUES('plus','123','Anna','333','Jan Kowalski','Pomoc','success')");
+ for(const path of ['/me','/overview','/employees?q=Jan','/employees/333','/logs?category=plus&q=Anna','/leaves','/rewards','/settings']){const r=await fetch(base+'/api'+path,{headers:{cookie}});assert.equal(r.status,200,path+': '+await r.text());}
+ const body=JSON.stringify({kind:'awans',targetId:'222222222222222222',reason:'Norma',requestId:'12345678-1234-1234-1234-123456789abc'});
+ const headers={cookie,Origin:base,'Content-Type':'application/json'};
+ assert.equal((await fetch(base+'/api/actions',{method:'POST',headers,body})).status,403);assert.equal(actions,0);
+ headers['X-CSRF-Token']=csrf;
+ assert.equal((await fetch(base+'/api/actions',{method:'POST',headers:{...headers,Origin:'https://other.example'},body})).status,403);
+ assert.equal((await fetch(base+'/api/actions',{method:'POST',headers,body})).status,200);assert.equal(actions,1);
+ assert.equal((await fetch(base+'/api/settings/commands',{method:'POST',headers,body:'{"hidden":true}'})).status,200);assert.equal(visibility,true);
+ allowed=false;assert.equal((await fetch(base+'/api/me',{headers:{cookie}})).status,403);
+ assert.equal((await fetch(base+'/auth/callback?state=wrong&code=wrong',{headers:{cookie},redirect:'manual'})).headers.get('location'),'/?error=login');
+ assert.equal((await fetch(base+'/auth/discord',{redirect:'manual'})).headers.get('location'),'/?error=setup');
+ assert.equal((await fetch(base+'/')).status,200);
+});

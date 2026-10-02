@@ -12,7 +12,12 @@
     "check": "node scripts/check.mjs"
   },
   "dependencies": {
+    "connect-pg-simple": "^10.0.0",
     "discord.js": "^14.22.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "express-session": "^1.19.0",
+    "helmet": "^8.3.0",
     "luxon": "^3.7.2",
     "pg": "^8.16.3"
   },
