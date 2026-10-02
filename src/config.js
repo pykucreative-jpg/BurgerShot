@@ -1,7 +1,7 @@
 export const config={
  tabletChannel:'1502336969605251102',courseChannel:'1502335151324004457',coursePanelChannel:'1555666755886784523', actionChannels:{plus:'1502335672361549874',minus:'1502335801143464076',awans:'1502335910220533830',degrad:'1502336014834860142',zwolnij:'1502336111446462717'},
  staff:'1295044894825381950',employee:'1465037223350243390',
- ranks:[{id:'1524197367325134878',name:'Rekrut'},{id:'1292911416264622202',name:'Nowicjusz'},{id:'1519069368602988817',name:'Pracownik'},{id:'1292911416285728789',name:'Starszy pracownik'},{id:'1292911416285728790',name:'Specjalista'},{id:'1519067835769294858',name:'Doświadczony Specjalista'},{id:'1292911416285728792',name:'Kierownik zmiany'}],
+ ranks:[{id:'1524197367325134878',name:'Rekrut'},{id:'1292911416264622202',name:'Nowicjusz'},{id:'1519069368602988817',name:'Pracownik'},{id:'1292911416285728789',name:'Starszy pracownik'},{id:'1292911416285728790',name:'Specjalista'},{id:'1519067835769294858',name:'Doświadczony Specjalista'},{id:'1292911416285728792',name:'Kierownik zmiany'},{id:'1292911416306569307',name:'Kierownik'},{id:'1391129116199358545',name:'Menadżer'},{id:'1292911416323342398',name:'Zastępca szefa'},{id:'1292911416323342399',name:'Szefowa'}],
  plus:['1292911416264622197','1292911416264622196','1392281365072056350','1392281626813272187','1392281792148406353'],
  minus:['1292911416264622199','1292911416264622198'],leave:'1361046239994450090',logs:'1554530259481665656'
 };
@@ -15,3 +15,4 @@ export function environment(env=process.env){
  if(publicUrl){const u=new URL(publicUrl);if(u.origin!==publicUrl||(production&&u.protocol!=='https:'))throw new Error('PUBLIC_URL musi być samym adresem HTTPS bez ścieżki.');}
  return {production,publicUrl,clientSecret:env.DISCORD_CLIENT_SECRET,port:Number(env.PORT||3000),token:env.DISCORD_TOKEN,clientId:env.DISCORD_CLIENT_ID,guildId:env.DISCORD_GUILD_ID,databaseUrl:env.DATABASE_URL};
 }
+
