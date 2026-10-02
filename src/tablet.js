@@ -12,11 +12,14 @@ export function tablet(db,svc,card,publish,destination){
     const m=await svc.member(target);available=!m.user.bot;
     if(!available)throw new UserError('Wybierz pracownika, nie bota.');
     const e=await svc.employee(m);
-    const leave=(await db.q("SELECT ends_at FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending') ORDER BY id DESC LIMIT 1",[target])).rows[0];
+    const [leave,courses]=await Promise.all([db.q("SELECT ends_at FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending') ORDER BY id DESC LIMIT 1",[target]),db.q('SELECT courses_completed,spins_available FROM course_progress WHERE user_id=$1',[target])]);
+    const progress=courses?.rows?.[0]||{courses_completed:0,spins_available:0};
     fields['👤 Pracownik']=`<@${target}> · ${escapeMarkdown(m.displayName)}`;
     fields['🍟 Stanowisko']=e.rank||'Brak stanowiska';
     fields['⭐ Plusy']=`${e.plus_count}/5`;fields['⚠️ Minusy']=`${e.minus_count}/2`;
-    fields['🌴 Urlop']=leave?(leave.ends_at?`Do ${formatDate(leave.ends_at)}`:'Bezterminowo'):'Nie';
+    fields['📚 Kursy']=`${progress.courses_completed} / 20 do kolejnego losowania`;
+    fields['🎡 Koło']=m.roles?.cache?.has(config.staff)?'Zarząd — bez limitu':`${progress.spins_available} dostępne losowania`;
+    fields['🌴 Urlop']=leave.rows[0]?(leave.rows[0].ends_at?`Do ${formatDate(leave.rows[0].ends_at)}`:'Bezterminowo'):'Nie';
    }catch(err){if(err.code!==10007)throw err;fields['👤 Pracownik']=`<@${target}> — poza serwerem`;}
   }
   const components=[row(new ButtonBuilder().setCustomId(`tablet:search:${owner}`).setLabel('🔎 Wyszukaj').setStyle(ButtonStyle.Primary),new ButtonBuilder().setCustomId(`tablet:refresh:${owner}:${target||''}`).setLabel('🔄 Odśwież').setStyle(ButtonStyle.Secondary))];
