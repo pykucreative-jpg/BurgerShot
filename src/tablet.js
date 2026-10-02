@@ -18,7 +18,7 @@ export function tablet(db,svc,card,publish,destination){
     fields['🍟 Stanowisko']=e.rank||'Brak stanowiska';
     fields['⭐ Plusy']=`${e.plus_count}/5`;fields['⚠️ Minusy']=`${e.minus_count}/2`;
     fields['📚 Kursy']=`${progress.courses_completed} / 20 do kolejnego losowania`;
-    fields['🎡 Koło']=m.roles?.cache?.has(config.staff)?'Zarząd — bez limitu':`${progress.spins_available} dostępne losowania`;
+    fields['🎡 Koło']=`${progress.spins_available} dostępne losowania`;
     fields['🌴 Urlop']=leave.rows[0]?(leave.rows[0].ends_at?`Do ${formatDate(leave.rows[0].ends_at)}`:'Bezterminowo'):'Nie';
    }catch(err){if(err.code!==10007)throw err;fields['👤 Pracownik']=`<@${target}> — poza serwerem`;}
   }
