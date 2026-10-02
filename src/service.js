@@ -18,7 +18,7 @@ export function service(db, client, env) {
     catch { members=g.members.cache; }
     const items=[...members.values()].filter(m=>!m.user.bot&&m.roles.cache.has(config.employee)).map(m=>{
       const ids=[...m.roles.cache.keys()];
-      return {user_id:m.id,username:m.user.username,ic_name:m.displayName,rank:config.ranks[highest(config.ranks.map(r=>r.id),ids)-1]?.name||null,plus_count:highest(config.plus,ids),minus_count:highest(config.minus,ids)};
+      return {user_id:m.id,username:m.user.username,ic_name:m.displayName,avatar_url:m.user.displayAvatarURL?.({extension:'png',size:128})||null,rank:config.ranks[highest(config.ranks.map(r=>r.id),ids)-1]?.name||null,plus_count:highest(config.plus,ids),minus_count:highest(config.minus,ids)};
     }).sort((a,b)=>a.ic_name.localeCompare(b.ic_name,'pl'));
     companyCache={at:Date.now(),items};
     return items;
