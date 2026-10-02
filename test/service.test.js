@@ -29,7 +29,7 @@ test('pełny cykl plusów usuwa stare rangi i zachowuje 5 logów',async t=>{
 });
 test('dwadzieścia kursów odblokowuje jedno koło dla Firma DC, a Zarząd nie ma limitu',async t=>{
  const {svc,db}=await setup(t);
- for(let n=1;n<=20;n++)await svc.recordCourse({targetId,messageId:'kurs-'+n,playerName:'Jan Kowalski',courseNumber:n});
+ for(let n=1;n<=20;n++)await svc.recordCourse({targetId,messageId:'kurs-'+n,playerName:'Jan Kowalski',courseNumber:4});
  let progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[targetId])).rows[0];assert.equal(progress.courses_completed,20);assert.equal(progress.spins_available,1);
  const employeeSpin=await svc.spinWheel(targetId);assert.ok(employeeSpin.prize);assert.equal(employeeSpin.spins,0);
  const staffSpin=await svc.spinWheel(actorId);assert.equal(staffSpin.staff,true);assert.equal(staffSpin.spins,'∞');
