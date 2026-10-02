@@ -1,5 +1,5 @@
-import {ingestWebhookLog} from './webhook-logs.js';
-import {ingestCourseLog} from './course-wheel.js';
+import {ingestWebhookLog,processWebhookLogs} from './webhook-logs.js';
+import {ingestCourseLog,processCourseLogs} from './course-wheel.js';
 import {previewRewards} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
@@ -14,8 +14,24 @@ export function commands(hidden=false){
  return [new SlashCommandBuilder().setName('komenda').setDescription('Widoczność komend kadrowych — U/P').setDMPermission(false).addStringOption(o=>o.setName('tryb').setDescription('U — ukryj, P — pokaż').setRequired(true).addChoices({name:'U — ukryj',value:'U'},{name:'P — pokaż',value:'P'})),new SlashCommandBuilder().setName('kolo').setDescription('🎡 Losowanie nagrody za kursy').setDMPermission(false),new SlashCommandBuilder().setName('reset').setDescription('↺ Wyzeruj kursy i losowania wszystkich osób').setDMPermission(false),new SlashCommandBuilder().setName('nagrody').setDescription('💰 Podgląd nagród przed niedzielnym zestawieniem').setDMPermission(false).addIntegerOption(o=>o.setName('strona').setDescription('Strona listy nagród').setMinValue(1)),new SlashCommandBuilder().setName('zwolnij').setDescription('📋 Zwolnij jedną lub wiele osób').setDMPermission(false).addStringOption(o=>o.setName('osoby').setDescription('Oznaczenia @osób lub ID oddzielone spacją — maks. 20').setMaxLength(1000).setRequired(true)).addStringOption(o=>o.setName('powod').setDescription('Wspólny powód zwolnienia').setMaxLength(1000).setRequired(true)),base('zatrudnij').addStringOption(o=>o.setName('imie_i_nazwisko_ic').setDescription('Opcjonalnie — bez podania zachowamy pseudonim').setMaxLength(32)),...['plus','minus','awans','degrad','zdejmijurlop'].map(name=>base(name).addStringOption(o=>o.setName('powod').setDescription('Powód').setMaxLength(1000).setRequired(true))),base('urlop').addStringOption(o=>o.setName('do_kiedy').setDescription('DD.MM — bieżący rok, do końca dnia').setRequired(true))].map(c=>c.toJSON()).filter(c=>!hidden||!['awans','degrad','urlop','zdejmijurlop','zwolnij'].includes(c.name));
 }
 export function bot(db,client,svc,env){
- client.on(Events.MessageCreate,m=>{ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import logu webhooka',err.code||err.name));ingestCourseLog(db,m,env.guildId).catch(err=>console.error('Import kursu',err.code||err.name));});
- client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial){ingestWebhookLog(db,m,env.guildId).catch(err=>console.error('Import aktualizacji webhooka',err.code||err.name));ingestCourseLog(db,m,env.guildId).catch(err=>console.error('Import aktualizacji kursu',err.code||err.name));}});
+ let processingIncoming=false,incomingAgain=false;
+ const processIncoming=async()=>{
+  if(processingIncoming){incomingAgain=true;return;}
+  processingIncoming=true;
+  try{do{
+   incomingAgain=false;
+   await processWebhookLogs(db,svc);
+   await processCourseLogs(db,svc);
+   await svc.refreshCoursePresence();
+   await deliveries();
+  }while(incomingAgain);}finally{processingIncoming=false;}
+ };
+ const ingestIncoming=async message=>{
+  const [personnel,course]=await Promise.all([ingestWebhookLog(db,message,env.guildId),ingestCourseLog(db,message,env.guildId)]);
+  if(personnel||course)await processIncoming();
+ };
+ client.on(Events.MessageCreate,m=>{ingestIncoming(m).catch(err=>console.error('Obsługa nowego logu',err.code||err.name));});
+ client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestIncoming(m).catch(err=>console.error('Obsługa aktualizacji logu',err.code||err.name));});
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
@@ -119,3 +135,4 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();await coursePanel();}};
 }
+
