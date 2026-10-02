@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS logs (
 );
 CREATE INDEX IF NOT EXISTS logs_category_date ON logs(category, created_at DESC);
 CREATE INDEX IF NOT EXISTS logs_target_date ON logs(target_id, created_at DESC);
-ALTER TABLE logs ADD COLUMN IF NOT EXISTS diploma_delivered boolean NOT NULL DEFAULT false;
 CREATE TABLE IF NOT EXISTS leaves (
  id bigserial PRIMARY KEY, user_id text NOT NULL, ic_name text NOT NULL,
  starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL,
