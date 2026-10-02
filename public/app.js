@@ -1,7 +1,7 @@
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const titles={overview:'Przegląd',employees:'Pracownicy',logs:'Historia działań',leaves:'Urlopy',rewards:'Nagrody',settings:'Ustawienia'};
-const names={zatrudnij:'Zatrudnienie',plus:'Plus',minus:'Minus',awans:'Awans',degrad:'Degradacja',zwolnij:'Zwolnienie',urlop:'Urlop',zdejmijurlop:'Zdjęcie urlopu',kolo:'Koło nagród'};
-const symbols={plus:'✦',minus:'!',awans:'↗',degrad:'↘',zwolnij:'↗',urlop:'☀',zdejmijurlop:'☀',zatrudnij:'+',kolo:'🎡'};
+const names={zatrudnij:'Zatrudnienie',plus:'Plus',minus:'Minus',awans:'Awans',degrad:'Degradacja',zwolnij:'Zwolnienie',urlop:'Urlop',zdejmijurlop:'Zdjęcie urlopu',kolo:'Koło nagród',kurs:'Kurs #4'};
+const symbols={plus:'✦',minus:'!',awans:'↗',degrad:'↘',zwolnij:'↗',urlop:'☀',zdejmijurlop:'☀',zatrudnij:'+',kolo:'🎡',kurs:'📚'};
 const statuses={success:'Wykonano',noop:'Bez zmian',failed:'Błąd',partial:'Częściowo',pending:'Oczekuje',active:'Aktywny',scheduled:'Zaplanowany',starting:'Rozpoczynany',ending:'Kończony',ended:'Zakończony',cancelled:'Anulowany',dismissed:'Zwolniony'};
 let me,route='overview',page=0,query='',filter='',version=0;
 const date=v=>v?new Intl.DateTimeFormat('pl-PL',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Warsaw'}).format(new Date(v)):'—';
