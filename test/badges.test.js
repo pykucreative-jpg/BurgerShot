@@ -5,9 +5,9 @@ import {config} from '../src/config.js';
 import {card} from '../src/bot.js';
 const member=(ids,name='[S.P] Sonic Savage [urlop]')=>({displayName:name,roles:{cache:new Map(ids.map(id=>[id,{}]))}});
 test('wszystkie stanowiska i najwyższa posiadana ranga, pierwsze imię',()=>{
- assert.equal(badgeRanks.length,10);
+ assert.equal(badgeRanks.length,11);
  for(const r of badgeRanks){const result=badgeFor(member([config.employee,r.id]));assert.equal(result.name,'Sonic');assert.equal(result.nickname,`/zmiennick [${r.code}] Sonic`);assert.ok(result.description.endsWith(`${r.color} [${r.label}]`));}
- assert.equal(badgeFor(member([config.employee,...badgeRanks.map(r=>r.id)])).rank,'Szef');
+ assert.equal(badgeFor(member([config.employee,...badgeRanks.map(r=>r.id)])).rank,'Szefowa');
 });
 test('brak Firma Dc, brak stanowiska i niedozwolony tekst nie generują plakietki',()=>{
  assert.throws(()=>badgeFor(member([badgeRanks[0].id])),/Firma Dc/);
@@ -28,3 +28,4 @@ test('Pracownik Tygodnia dostaje dodatkowy opis, zachowując swoją rangę i nic
  const ids=[config.employee,badgeRanks[3].id];const normal=badgeFor(member(ids));assert.equal(normal.weekly,null);
  const weekly=badgeFor(member([...ids,'1536106262859616347']));assert.equal(weekly.rank,normal.rank);assert.equal(weekly.nickname,normal.nickname);assert.equal(weekly.description,normal.description);assert.match(weekly.weekly,/~HC_179~ \[Pracownik Tygodnia\]/);assert.match(weekly.weekly,/\[Sonic\]/);
 });
+
