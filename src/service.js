@@ -5,7 +5,7 @@ import {matchCourseEmployee} from './course-wheel.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
-  const wheelPrizes=['🔧 Naprawka · 10 000$', '📷 Aparat', '🔭 Obiektyw', '🎟️ Zdrapka', '🍔 Kupon BurgerShot'];
+  const wheelPrizes=['🔧 Naprawka · 10 000$', '📷 Aparat', '🔭 Obiektyw', '🎟️ Zdrapka'];
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   let courseMemberCache={at:0,members:new Map()};
