@@ -32,7 +32,12 @@ export function bot(db,client,svc,env){
       try {
         const ch=await client.channels.fetch(config.logs);
         const result=l.details;
-        await ch.send({embeds:[card({title:labels[l.category]||'📋 Historia',fields:{'🍔 Osoba':l.target_id?`<@${l.target_id}> · ${escapeMarkdown(l.target_name||'')}`:escapeMarkdown(l.target_name||'—'),'👤 Wykonano przez':`<@${l.actor_id}> · ${escapeMarkdown(l.actor_name)}`,'💬 Powód':escapeMarkdown(l.reason||'—'),'📋 Wynik':l.status==='success'?'Wykonano':l.status==='noop'?'Bez zmian':result.error||'Nie ukończono','🍟 Szczegóły':result.fields?.['🍟 Stanowisko'] || result.description || result.steps?.join(' · ') || '—','🕒 Data':formatDate(l.created_at)}})]});
+         const subject=l.target_id?`👤 <@${l.target_id}> · ${escapeMarkdown(l.target_name||'')}`:'👥 Wszyscy pracownicy';
+         const detail=result.fields?.['🍟 Stanowisko']||result.fields?.['✨ Plusy']||result.fields?.['📋 Minusy']||result.description||result.steps?.join(' · ')||'';
+         const outcome=l.status==='success'?'✅ Wykonano':l.status==='noop'?'ℹ️ Bez zmian':`⚠️ ${result.error||'Nie ukończono'}`;
+         const actor=l.actor_name?.startsWith('Automatycznie')?'🤖 Automatycznie':`👤 <@${l.actor_id}>`;
+         const description=[subject,l.reason&&`💬 ${escapeMarkdown(l.reason)}`,detail&&`↳ ${escapeMarkdown(detail)}`,`${outcome} · ${actor} · ${formatDate(l.created_at)}`].filter(Boolean).join('\n');
+         await ch.send({embeds:[card({title:labels[l.category]||'📋 Historia',description})]});
         await db.q('UPDATE logs SET delivered=true WHERE id=$1',[l.id]);
       } catch(err) { console.error('Nie wysłano logu',l.id,err.code||err.name); break; }
     }
@@ -114,3 +119,4 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();await coursePanel();}};
 }
+
