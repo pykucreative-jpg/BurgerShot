@@ -42,7 +42,7 @@ export async function previewRewards(db,page=1){
   const rows=await pendingRewards(db);
   const listEntries=entries(rows),pages=Math.max(1,Math.ceil(listEntries.length/40));page=Math.max(1,Math.min(page,pages));
   const list=listEntries.slice((page-1)*40,page*40).map((entry,index)=>`${(page-1)*40+index+1}. ${entry.text}`).join('\n');
-  return {title:'💰 BurgerShot • Podgląd nagród',description:rows.length?`**${summary(rows)}**\n\n${list}\n\nStrona **${page}/${pages}**. Kolejna: /nagrody strona:${Math.min(page+1,pages)}\nLista obejmuje nagrody za 5/5 oraz nagrody wylosowane na kole. Przycisk Rozliczono zamyka wyłącznie to zestawienie.`:'Brak nagród oczekujących na rozliczenie.'};
+  return {title:'💰 BurgerShot • Podgląd nagród',description:rows.length?`**${summary(rows)}**\n\n${list}\n\nStrona **${page}/${pages}**. Kolejna: /nagrody strona:${Math.min(page+1,pages)}\nNagrody wypłaca Zarząd w niedzielę. Lista obejmuje nagrody za 5/5 oraz nagrody wylosowane na kole. Przycisk Rozliczono zamyka wyłącznie to zestawienie.`:'Brak nagród oczekujących na rozliczenie.'};
 }
 
 export function rewardCutoff(now=new Date()) {
@@ -62,7 +62,7 @@ export async function queueRewards(db,now=new Date()) {
     if(!rows.length)return;
     const listEntries=entries(rows),date=DateTime.fromJSDate(cutoff,{zone:'Europe/Warsaw'}).toFormat('dd.MM.yyyy');
     for(let i=0;i<listEntries.length;i+=40) {
-      const body=`**${summary(rows)}**\n\n${listEntries.slice(i,i+40).map((entry,index)=>`${i+index+1}. ${entry.text}`).join('\n')}\n\nPo wypłacie lub wydaniu nagród zarząd może oznaczyć to zestawienie przyciskiem Rozliczono.`;
+      const body=`**${summary(rows)}**\n\n${listEntries.slice(i,i+40).map((entry,index)=>`${i+index+1}. ${entry.text}`).join('\n')}\n\nNagrody wypłaca Zarząd w niedzielę. Po wypłacie lub wydaniu nagród zarząd może oznaczyć to zestawienie przyciskiem Rozliczono.`;
       await tx.query('INSERT INTO notifications(channel_id,title,body,role_id,reward_cutoff) VALUES($1,$2,$3,$4,$5)',[config.logs,`💰 BurgerShot • Nagrody • ${date}`,body,i===0?config.staff:null,cutoff.toISOString()]);
     }
     for(const row of rows)await tx.query('INSERT INTO reported_rewards(log_id,cutoff) VALUES($1,$2)',[row.id,cutoff]);
