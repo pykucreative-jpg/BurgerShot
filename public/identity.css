@@ -1,0 +1,9 @@
+/* Systemowy krój Apple jest używany natywnie na iPhone, iPad i Mac. */
+:root{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Helvetica,Arial,sans-serif;text-rendering:optimizeLegibility}
+body{letter-spacing:-.01em}
+.live-source{display:flex;align-items:center;gap:7px;font:9px ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.6px;color:#6d6a61;margin:-7px 0 18px}
+.live-source .live-dot{margin:0;width:6px;height:6px}
+.table-wrap{box-shadow:0 1px 0 #fff inset}
+tr[data-person]{transition:background .15s ease,transform .15s ease}
+tr[data-person]:hover{background:#e8e4da;box-shadow:inset 3px 0 var(--red)}
+.heading h1{font-weight:520}

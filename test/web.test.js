@@ -8,7 +8,7 @@ test('panel chroni dane, sprawdza aktualną rangę i CSRF; wszystkie widoki czyt
  const pg=new PGlite();await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));await pg.exec(await readFile(new URL('../node_modules/connect-pg-simple/table.sql',import.meta.url),'utf8'));
  const q=async(s,p=[])=>{const r=await pg.query(s,p);return {...r,rowCount:r.affectedRows??r.rows.length};};
  const db={q,pool:{query:q}};let allowed=true,actions=0,visibility;
- const svc={authorize:async()=>{if(!allowed)throw Error('revoked');},run:async()=>{actions++;return {title:'OK',description:'Zapisano'};},notify:async()=>{}};
+ const svc={authorize:async()=>{if(!allowed)throw Error('revoked');},companyMembers:async()=>[{user_id:'444',username:'live.staff',ic_name:'Live Staff',rank:'Pracownik',plus_count:2,minus_count:0}],run:async()=>{actions++;return {title:'OK',description:'Zapisano'};},notify:async()=>{}};
  const secret=await sessionKey(db);assert.equal(await sessionKey(db),secret);
  const env={sessionSecret:secret,production:false,publicUrl:'',clientId:'test',guildId:'test'};
  const app=web(db,svc,{setVisibility:async v=>{visibility=v;}},env,()=>true);
@@ -21,6 +21,7 @@ test('panel chroni dane, sprawdza aktualną rangę i CSRF; wszystkie widoki czyt
  await q("INSERT INTO employees(user_id,username,ic_name,hired_by_name) VALUES('333','jan.k','Jan Kowalski','Anna')");
  await q("INSERT INTO logs(category,actor_id,actor_name,target_id,target_name,reason,status) VALUES('plus','123','Anna','333','Jan Kowalski','Pomoc','success')");
  for(const path of ['/me','/overview','/employees?q=Jan','/employees/333','/logs?category=plus&q=Anna','/leaves','/rewards','/settings']){const r=await fetch(base+'/api'+path,{headers:{cookie}});assert.equal(r.status,200,path+': '+await r.text());}
+ const staff=await (await fetch(base+'/api/employees',{headers:{cookie}})).json();assert.equal(staff.source,'discord');assert.equal(staff.total,1);assert.equal(staff.items[0].ic_name,'Live Staff');
  const body=JSON.stringify({kind:'awans',targetId:'222222222222222222',reason:'Norma',requestId:'12345678-1234-1234-1234-123456789abc'});
  const headers={cookie,Origin:base,'Content-Type':'application/json'};
  assert.equal((await fetch(base+'/api/actions',{method:'POST',headers,body})).status,403);assert.equal(actions,0);

@@ -4,6 +4,20 @@ import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLea
 
 export function service(db, client, env) {
   const guild = () => client.guilds.fetch(env.guildId);
+  let companyCache={at:0,items:[]};
+  async function companyMembers() {
+    if(Date.now()-companyCache.at<60000)return companyCache.items;
+    const g=await guild();
+    let members;
+    try { members=await g.members.fetch(); }
+    catch { members=g.members.cache; }
+    const items=[...members.values()].filter(m=>!m.user.bot&&m.roles.cache.has(config.employee)).map(m=>{
+      const ids=[...m.roles.cache.keys()];
+      return {user_id:m.id,username:m.user.username,ic_name:m.displayName,rank:config.ranks[highest(config.ranks.map(r=>r.id),ids)-1]?.name||null,plus_count:highest(config.plus,ids),minus_count:highest(config.minus,ids)};
+    }).sort((a,b)=>a.ic_name.localeCompare(b.ic_name,'pl'));
+    companyCache={at:Date.now(),items};
+    return items;
+  }
   async function member(id) { return (await guild()).members.fetch({ user:id, force:true }); }
   async function authorize(id) {
     const m = await member(id);
@@ -200,5 +214,5 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,authorize,employee,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,authorize,employee,run,audit,tickLeaves,notify,applyWebhook};
 }
