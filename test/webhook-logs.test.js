@@ -11,7 +11,8 @@ test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  assert.equal(demotion.kind,'degrad');assert.match(webhookNotice(demotion).body,/Brak wyrobionej normy/);
  const leave=parseWebhookLog('BURGERSHOT - Urlop pracownika','Ashe Moore wysłał(a) na urlop pracownika Basile Savage (bezterminowo).');assert.equal(leave.person,'Basile Savage');assert.equal(webhookNotice(leave).channel,'1502336468016828567');
  const dismissal=parseWebhookLog('BURGERSHOT - Zwolnienie\nPracownika','David Alfonso zwolnił(a) gracza Oscar Koby z firmy Burgershot\nIdentifier: `char1:1163815030274396301`');assert.equal(dismissal.person,'Oscar Koby');assert.ok(!webhookNotice(dismissal).body.includes('char1'));
- assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Szef na Nieznany.'),null);
+ assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Szefowa na Nieznany.'),null);
+ assert.deepEqual(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Menadżer na Zastępca szefa.'),{kind:'awans',actor:'A',person:'B',before:'Menadżer',after:'Zastępca szefa'});
  assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Pracownik na Pracownik.'),null);
 });
 test('tylko webhook na źródle; trwała deduplikacja i brak zmian kadrowych',async t=>{
@@ -60,3 +61,4 @@ test('szybkie logi dzielą listę członków, limit odkłada kolejkę bez utraty
  await processWebhookLogs(db,svc);assert.equal(actions,2);assert.equal(fetches,2);
  await ingestWebhookLog(db,{...m,id:'c'},'guild');await processWebhookLogs(db,svc);assert.equal(actions,3);assert.equal(fetches,2);
 });
+
