@@ -129,10 +129,10 @@ export function service(db, client, env) {
   async function resetCourses(actorId) {
     const actor=await authorize(actorId);
     return db.lock('course-progress-reset',async()=>db.transaction(async tx=>{
-      const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,spins_available=0,spins_used=0,last_course_at=NULL,updated_at=now()
-        WHERE courses_completed<>0 OR spins_available<>0 OR spins_used<>0 RETURNING user_id`);
+      const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,last_course_at=NULL,updated_at=now()
+        WHERE courses_completed<>0 RETURNING user_id`);
       await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,reason,details,status,channel_id)
-        VALUES($1,'reset',$2,$3,$4,$5,'success',$6)`,[`course-reset:${Date.now()}`,actor.id,actor.name,'Wyzerowano liczniki kursów i dostępne losowania.',JSON.stringify({description:`↺ Wyzerowano kursy oraz niewykorzystane losowania dla **${reset.rowCount}** osób.`}),config.logs]);
+        VALUES($1,'reset',$2,$3,$4,$5,'success',$6)`,[`course-reset:${Date.now()}`,actor.id,actor.name,'Wyzerowano liczniki kursów. Losowania pozostają na kontach.',JSON.stringify({description:`↺ Wyzerowano kursy dla **${reset.rowCount}** osób. Zdobyte losowania zostały zachowane.`}),config.logs]);
       return {count:reset.rowCount};
     }));
   }
@@ -140,10 +140,10 @@ export function service(db, client, env) {
     return db.lock('course-progress-release-reset',async()=>db.transaction(async tx=>{
       const marker=await tx.query("INSERT INTO bot_settings(key,value) VALUES('course_progress_reset_2026_10_02','done') ON CONFLICT(key) DO NOTHING RETURNING key");
       if(!marker.rowCount)return {ran:false,count:0};
-      const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,spins_available=0,spins_used=0,last_course_at=NULL,updated_at=now()
-        WHERE courses_completed<>0 OR spins_available<>0 OR spins_used<>0 RETURNING user_id`);
+      const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,last_course_at=NULL,updated_at=now()
+        WHERE courses_completed<>0 RETURNING user_id`);
       await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,reason,details,status,channel_id)
-        VALUES('course-reset:2026-10-02','reset',$1,$2,$3,$4,'success',$5)`,[client.user.id,'Automatycznie · Aktualizacja koła','Wyzerowano wcześniejsze kursy i losowania po zmianie zasad.',JSON.stringify({description:`↺ Wyzerowano kursy oraz niewykorzystane losowania dla **${reset.rowCount}** osób.`}),config.logs]);
+        VALUES('course-reset:2026-10-02','reset',$1,$2,$3,$4,'success',$5)`,[client.user.id,'Automatycznie · Aktualizacja koła','Wyzerowano wcześniejsze kursy po zmianie zasad. Losowania pozostają.',JSON.stringify({description:`↺ Wyzerowano kursy dla **${reset.rowCount}** osób. Zdobyte losowania zostały zachowane.`}),config.logs]);
       return {ran:true,count:reset.rowCount};
     }));
   }
