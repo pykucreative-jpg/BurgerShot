@@ -86,7 +86,7 @@ export function bot(db,client,svc,env){
     const cutoff=i.customId.slice('rewards:settle:'.length);
     const settled=await db.q('UPDATE reward_reports SET settled_at=now(),settled_by=$2 WHERE cutoff=$1 AND settled_at IS NULL RETURNING cutoff',[cutoff,i.user.id]);
     if(!settled.rowCount){await i.editReply({components:[]});return;}
-    const embed=EmbedBuilder.from(i.message.embeds[0]).setFooter({text:'🍔 BurgerShot • Rozliczono przez '+i.user.username});
+    const embed=EmbedBuilder.from(i.message.embeds[0]).setThumbnail(brandAvatar).setFooter({text:'🍔 BurgerShot • Rozliczono przez '+i.user.username});
     await i.editReply({embeds:[embed],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('rewards:done').setLabel('✅ Rozliczono').setStyle(ButtonStyle.Secondary).setDisabled(true))]});
    }catch(err){if(!i.deferred)await i.reply({flags:MessageFlags.Ephemeral,content:err instanceof UserError?err.message:'Nie udało się rozliczyć zestawienia.'}).catch(()=>{});else console.error('Rozliczenie nagród',err.code||err.name);}
    return;
