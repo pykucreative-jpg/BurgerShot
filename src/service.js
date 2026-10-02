@@ -87,8 +87,9 @@ export function service(db, client, env) {
     const memberIds=new Set(members.map(m=>m.user_id));
     const activeCount=activeRows.filter(row=>memberIds.has(row.user_id)).length;
     const total=members.length;
-    await client.user.setPresence({activities:[{name:`${activeCount}/${total} aktywnych`,type:3}],status:'online'});
-    return {active:activeCount,total,expired:active.length};
+    const leaveCount=(await db.q("SELECT count(*)::int AS count FROM leaves WHERE status IN ('active','starting','ending')")).rows[0].count;
+    await client.user.setPresence({activities:[{name:`👁 ${activeCount}/${total} aktywnych\n🌴 ${leaveCount}/${total} na urlopie`,type:3}],status:'online'});
+    return {active:activeCount,leaves:leaveCount,total,expired:active.length};
   }
   async function spinWheel(userId) {
     return db.lock(`wheel:${userId}`,async()=>{
@@ -113,6 +114,17 @@ export function service(db, client, env) {
     if(!staff&&!employeeRole)throw new UserError('Panel kursów jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
     const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[userId])).rows[0]||{courses_completed:0,spins_available:0,spins_used:0};
     return {courses:progress.courses_completed,spins:progress.spins_available,staff,remaining:20-(progress.courses_completed%20)||20};
+  }
+  async function personalProfile(userId) {
+    const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
+    if(!staff&&!employeeRole)throw new UserError('Mój profil jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
+    const e=await employee(m);
+    const [progress,leave]=await Promise.all([
+      db.q('SELECT * FROM course_progress WHERE user_id=$1',[userId]),
+      db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','starting','ending') ORDER BY id DESC LIMIT 1",[userId])
+    ]);
+    const courses=progress.rows[0]||{courses_completed:0,spins_available:0};
+    return {employee:e,courses,leave:leave.rows[0]||null,avatar:m.user.displayAvatarURL?.({extension:'png',size:256})||null};
   }
   async function resetCourses(actorId) {
     const actor=await authorize(actorId);
@@ -317,6 +329,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,personalProfile,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
 
