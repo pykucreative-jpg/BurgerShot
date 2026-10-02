@@ -18,7 +18,7 @@ let initialized=false,working=false,stopping=false,lastMaintenance=0,lastCourseP
 const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=15000){lastMaintenance=Date.now();await processWebhookLogs(db,svc);await processCourseLogs(db,svc);await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}if(Date.now()-lastCoursePresence>=600000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
 async function shutdown(code=0){if(stopping)return;stopping=true;clearInterval(timer);httpServer.close();client.destroy();await db.pool.end();process.exit(code);}
 async function sendDiplomaPreview(){
- const key='diploma_preview_795755381744861184_sent';
+ const key='diploma_preview_795755381744861184_v2_sent';
  const created=await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'pending') ON CONFLICT(key) DO NOTHING RETURNING key",[key]);
  if(!created.rowCount)return;
  try{const user=await client.users.fetch('795755381744861184');await sendDiploma(client,{userId:user.id,name:user.globalName||user.username,rank:'MENADŻER • WZÓR',issuedAt:new Date()});await db.q("UPDATE bot_settings SET value='sent' WHERE key=$1",[key]);}
