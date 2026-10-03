@@ -36,7 +36,7 @@ export function service(db, client, env) {
       const searched=await g.members.search({query:bracket,limit:100});
       for(const member of searched.values())courseMemberCache.members.set(member.id,member);
     } catch {}
-    return matchCourseEmployee(name,[...courseMemberCache.members.values()]);
+    return matchCourseEmployee(name,[...courseMemberCache.members.values()].filter(m=>m.roles.cache.has(config.employee)));
   }
   async function member(id) { return (await guild()).members.fetch({ user:id, force:true }); }
   async function authorize(id) {
