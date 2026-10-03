@@ -13,15 +13,23 @@ export function parseCourseLog(title,description){
 const canonical=value=>normalizedName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 const memberId=person=>person.user_id||person.id;
 const memberNames=person=>[person.ic_name,person.displayName,person.nickname,person.username,person.user?.username,person.user?.globalName].filter(Boolean).map(canonical);
+const hasPhrase=(value,phrase)=>` ${value} `.includes(` ${phrase} `);
 export function matchCourseEmployee(player,employees){
  const bracket=[...String(player).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1];
  if(!bracket)throw new Error('Wpis kursu nie zawiera nazwy w nawiasie kwadratowym.');
- const wanted=canonical(bracket),full=wanted.split(' ').filter(Boolean);
+ const wanted=canonical(bracket),nick=canonical(String(player).split('[')[0]);
  const usable=employees.filter(person=>!person.bot&&!person.user?.bot);
- let found=usable.filter(person=>memberNames(person).includes(wanted));
- if(found.length!==1&&full.length>=2)found=usable.filter(person=>memberNames(person).some(name=>name.includes(wanted)||wanted.includes(name)));
- if(found.length!==1)throw new Error(found.length?'Kilka osób pasuje do wpisu kursu.':'Nie znaleziono osoby o tym pseudonimie na serwerze Discord.');
- return memberId(found[0]);
+ // Najpierw wybieramy pełne imię i nazwisko z nawiasu. Rangi, [urlop] i inne dopiski nie zmieniają tego dopasowania.
+ const matches=usable.map(person=>{
+  const names=memberNames(person),nameMatch=names.some(name=>hasPhrase(name,wanted));
+  if(!nameMatch)return null;
+  const exact=names.some(name=>name===wanted);
+  const nickMatch=nick&&names.some(name=>name===nick);
+  return {person,score:(exact?1000:500)+(nickMatch?100:0)};
+ }).filter(Boolean).sort((a,b)=>b.score-a.score);
+ if(!matches.length)throw new Error('Nie znaleziono osoby o tym imieniu i nazwisku na serwerze Discord.');
+ if(matches.length>1&&matches[0].score===matches[1].score)throw new Error('Kilka osób ma to samo imię i nazwisko. Sprawdź pseudonim tej osoby na Discordzie.');
+ return memberId(matches[0].person);
 }
 export async function ingestCourseLog(db,message,guildId){
  if(message.guildId!==guildId||message.channelId!==sourceChannel||!message.webhookId)return false;
