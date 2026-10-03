@@ -6,11 +6,11 @@ import {parseWebhookLog,webhookNotice,ingestWebhookLog,sourceChannel,matchEmploy
 const title='BURGERSHOT - Zmiana stopnia';
 test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  const promotion=parseWebhookLog(title,'**Abdul Grushinski** zmienił(a) stopień pracownika **Harry Correa** z **Pracownik** na **Starszy Pracownik**.');
- assert.equal(promotion.kind,'awans');assert.equal(promotion.person,'Harry Correa');assert.match(webhookNotice(promotion).body,/Wyrobienie normy awansowej/);
+ assert.equal(promotion.kind,'awans');assert.equal(promotion.person,'Harry Correa');assert.match(webhookNotice(promotion).body,/Wyrobienie normy awansowej/);assert.equal(webhookNotice(promotion).art,undefined);
  const demotion=parseWebhookLog(title,'Sonic Savage zmienił(a) stopień pracownika Harry Correa\nz Starszy Pracownik na Pracownik.');
  assert.equal(demotion.kind,'degrad');assert.match(webhookNotice(demotion).body,/Brak wyrobionej normy/);
- const leave=parseWebhookLog('BURGERSHOT - Urlop pracownika','Ashe Moore wysłał(a) na urlop pracownika Basile Savage (bezterminowo).');assert.equal(leave.person,'Basile Savage');assert.equal(webhookNotice(leave).channel,'1502336468016828567');
- const dismissal=parseWebhookLog('BURGERSHOT - Zwolnienie\nPracownika','David Alfonso zwolnił(a) gracza Oscar Koby z firmy Burgershot\nIdentifier: `char1:1163815030274396301`');assert.equal(dismissal.person,'Oscar Koby');assert.ok(!webhookNotice(dismissal).body.includes('char1'));
+ const leave=parseWebhookLog('BURGERSHOT - Urlop pracownika','Ashe Moore wysłał(a) na urlop pracownika Basile Savage (bezterminowo).');assert.equal(leave.person,'Basile Savage');assert.equal(webhookNotice(leave).channel,'1502336468016828567');assert.equal(webhookNotice(leave).art,'urlop');
+ const dismissal=parseWebhookLog('BURGERSHOT - Zwolnienie\nPracownika','David Alfonso zwolnił(a) gracza Oscar Koby z firmy Burgershot\nIdentifier: `char1:1163815030274396301`');assert.equal(dismissal.person,'Oscar Koby');assert.ok(!webhookNotice(dismissal).body.includes('char1'));assert.equal(webhookNotice(dismissal).art,'zwolnij');
  assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Szefowa na Nieznany.'),null);
  assert.deepEqual(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Menadżer na Zastępca szefa.'),{kind:'awans',actor:'A',person:'B',before:'Menadżer',after:'Zastępca szefa'});
  assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Pracownik na Pracownik.'),null);
