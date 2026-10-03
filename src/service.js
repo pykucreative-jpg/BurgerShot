@@ -212,7 +212,7 @@ export function service(db, client, env) {
           const state=nextPlus(ids);
           await replaceRoles(m,config.plus,state.after?config.plus[state.after-1]:null,reason,steps); steps.push('Zaktualizowano rangi plusów');
           await db.q('UPDATE employees SET plus_count=$2 WHERE user_id=$1',[m.id,state.after]);
-          return {title:state.reset?'🌟 Pięć plusów na koncie!':'🌟 Dobra robota!',description:`<@${m.id}>, dziękujemy za zaangażowanie! 🤍${state.reset?' Osiągnięto 5/5! 💰 Po nagrodę pieniężną zgłoś się do zarządu w niedzielę. Zapisano Cię na liście nagród. Licznik zaczyna nowy cykl od 0/5.':''}`,before:state.before,after:state.after,fields:{'💬 Powód':reason,'✨ Plusy':state.reset?'5/5 ✅ → nowy cykl 0/5':`${state.after}/5`,'👤 Przyznał(a)':`<@${actor.id}>`}};
+          return {art:'plus',title:state.reset?'🌟 Pięć plusów na koncie!':'🌟 Dobra robota!',description:`<@${m.id}>, dziękujemy za zaangażowanie! 🤍${state.reset?' Osiągnięto 5/5! 💰 Po nagrodę pieniężną zgłoś się do zarządu w niedzielę. Zapisano Cię na liście nagród. Licznik zaczyna nowy cykl od 0/5.':''}`,before:state.before,after:state.after,fields:{'💬 Powód':reason,'✨ Plusy':state.reset?'5/5 ✅ → nowy cykl 0/5':`${state.after}/5`,'👤 Przyznał(a)':`<@${actor.id}>`}};
         }
         if(kind==='minus') {
           const count=Math.min(2,highest(config.minus,ids)+1);
@@ -221,7 +221,7 @@ export function service(db, client, env) {
           await replaceRoles(m,config.minus,config.minus[count-1],reason,steps); steps.push('Nadano minus');
           await db.q('UPDATE employees SET minus_count=$2 WHERE user_id=$1',[m.id,count]);
           if(count===2) await dismiss(await member(m.id),steps,reason);
-          return {title:count===2?'📋 Zakończenie współpracy':'⚠️ Ostrzeżenie pracownicze',description:count===2?`${e.ic_name} otrzymał(a) drugi minus. Odebrano rangi i usunięto osobę z serwera.`:`<@${m.id}> otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.`,fields:{'💬 Powód':reason,'📋 Minusy':`${count}/2`,'👤 Wystawił(a)':`<@${actor.id}>`}};
+          return {art:'minus',title:count===2?'📋 Zakończenie współpracy':'⚠️ Ostrzeżenie pracownicze',description:count===2?`${e.ic_name} otrzymał(a) drugi minus. Odebrano rangi i usunięto osobę z serwera.`:`<@${m.id}> otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.`,fields:{'💬 Powód':reason,'📋 Minusy':`${count}/2`,'👤 Wystawił(a)':`<@${actor.id}>`}};
         }
         if(['awans','degrad'].includes(kind)) {
           const change=rankChange(ids,kind==='awans'?1:-1);
@@ -234,14 +234,14 @@ export function service(db, client, env) {
         }
         if(kind==='zwolnij') {
           await dismiss(m,steps,reason);
-          return {title:'📋 Zakończenie współpracy',description:`${e.ic_name} został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':`<@${actor.id}>`}};
+          return {art:'zwolnij',title:'📋 Zakończenie współpracy',description:`${e.ic_name} został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':`<@${actor.id}>`}};
         }
         if(kind==='urlop') {
           if(!endsAt||new Date(endsAt)<=new Date()) throw new UserError('Koniec urlopu musi wypadać w przyszłości.');
           if((await db.q("SELECT id FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rowCount) throw new UserError('Ta osoba ma już urlop lub oczekujący wniosek.');
           const l=(await db.q(`INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,now(),$3,'scheduled',$4,$5,$6) RETURNING *`,[m.id,e.ic_name,endsAt,channelId,actor.id,actor.name])).rows[0];
           steps.push('Zapisano urlop'); await activate(l,m,steps);
-          return {title:'🌴 Czas na odpoczynek!',description:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':formatDate(endsAt),'👤 Zatwierdził(a)':`<@${actor.id}>`}};
+          return {art:'urlop',title:'🌴 Czas na odpoczynek!',description:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':formatDate(endsAt),'👤 Zatwierdził(a)':`<@${actor.id}>`}};
         }
         if(kind==='zdejmijurlop') {
           const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending')",[m.id])).rows[0];
