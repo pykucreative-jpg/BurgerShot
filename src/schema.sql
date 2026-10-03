@@ -76,3 +76,7 @@ AND NOT EXISTS (SELECT 1 FROM imported_webhook_logs newer WHERE newer.event->>'p
 
 CREATE TABLE IF NOT EXISTS bot_settings(key text PRIMARY KEY,value text NOT NULL);
 
+CREATE TABLE IF NOT EXISTS nickname_reminders (
+ user_id text PRIMARY KEY, last_reminded_at timestamptz NOT NULL DEFAULT now()
+);
+
