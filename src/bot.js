@@ -63,7 +63,7 @@ export function bot(db,client,svc,env){
     for(const n of pending) {
       try {
         const channel=await client.channels.fetch(n.channel_id);
-        await channel.send({content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]},embeds:[card({title:n.title,description:n.body})],components:n.reward_cutoff?[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('rewards:settle:'+n.reward_cutoff).setLabel('✅ Rozliczono').setStyle(ButtonStyle.Success))]:[]});
+        await channel.send({content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]},embeds:[card({title:n.title,description:n.body,art:n.art})],files:actionFiles(n.art),components:n.reward_cutoff?[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('rewards:settle:'+n.reward_cutoff).setLabel('✅ Rozliczono').setStyle(ButtonStyle.Success))]:[]});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);}
     }
