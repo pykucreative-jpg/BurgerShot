@@ -68,7 +68,7 @@ export function tablet(db,svc,card,publish,destination){
     const channelId=destination(kind,i.channelId,true);
     const result=await svc.run({kind,actorId:owner,targetId:target,channelId,requestId:i.id,reason:value});
     let status=`✅ ${result.title}`;
-    try{await publish(kind,{embeds:[card(result)]},i.channelId,true);status+=`\nWiadomość wysłana na <#${channelId}>.`;}
+    try{await publish(kind,{art:result.art,embeds:[card(result)]},i.channelId,true);status+=`\nWiadomość wysłana na <#${channelId}>.`;}
     catch{status+='\n⚠️ Działanie zapisano, ale wysyłka na kanał nie powiodła się. Sprawdź logi; nie ponawiaj działania.';}
     try{await i.editReply(await view(owner,target,status));}
     catch{await i.editReply({embeds:[card({title:'🍔 Tablet zarządu',description:status+'\nWybierz ponownie pracownika.'})],components:(await view(owner)).components});}
@@ -95,3 +95,4 @@ export function tablet(db,svc,card,publish,destination){
  }
  return {handle,view,panel};
 }
+
