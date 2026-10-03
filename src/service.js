@@ -5,7 +5,7 @@ import {matchCourseEmployee} from './course-wheel.js';
 import { UserError, text, nextPlus, highest, rankChange, leaveNickname, clearLeaveNickname, formatDate } from './domain.js';
 
 export function service(db, client, env) {
-  const wheelPrizes=[['🔧 Naprawka',225],['💵 10 000$',100],['📷 Aparat',225],['🔭 Obiektyw',225],['🎟️ Zdrapka',225]];
+  const wheelPrizes=[['🔧 Naprawka',220],['💵 10 000$',100],['📷 Aparat',220],['🔭 Obiektyw',220],['🎟️ Zdrapka',220],['🎁 Prezent od Mijki',20]];
   const wheelPrize=()=>{let roll=randomInt(1000);for(const [prize,weight] of wheelPrizes){if(roll<weight)return prize;roll-=weight;}return wheelPrizes.at(-1)[0];};
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
