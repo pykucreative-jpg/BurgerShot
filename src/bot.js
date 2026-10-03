@@ -4,12 +4,13 @@ import {previewRewards} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
+import {actionFiles,actionThumbnail} from './action-art.js';
 import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown,ActionRowBuilder,ButtonBuilder,ButtonStyle} from 'discord.js';
 import {config,labels} from './config.js';
 import {UserError,parseLeaveDate,formatDate} from './domain.js';
 export const makeClient=()=>new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent],allowedMentions:{parse:[]}});
 const brandAvatar='https://raw.githubusercontent.com/pykucreative-jpg/BurgerShot/main/public/discord-avatar.jpg';
-export function card(result){const e=new EmbedBuilder().setColor(result.color||0xFF3B30).setAuthor({name:'BURGER SHOT • STAFF OFFICE'}).setTitle(result.title||'🍔 BurgerShot').setThumbnail(brandAvatar).setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
+export function card(result){const e=new EmbedBuilder().setColor(result.color||0xFF3B30).setAuthor({name:'BURGER SHOT • STAFF OFFICE'}).setTitle(result.title||'🍔 BurgerShot').setThumbnail(actionThumbnail(result.art)||brandAvatar).setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
 export function commands(hidden=false){
  const base=(name)=>new SlashCommandBuilder().setName(name).setDescription(labels[name]).setDMPermission(false).addUserOption(o=>o.setName('osoba').setDescription('Pracownik').setRequired(true));
  return [new SlashCommandBuilder().setName('komenda').setDescription('Widoczność komend kadrowych — U/P').setDMPermission(false).addStringOption(o=>o.setName('tryb').setDescription('U — ukryj, P — pokaż').setRequired(true).addChoices({name:'U — ukryj',value:'U'},{name:'P — pokaż',value:'P'})),new SlashCommandBuilder().setName('kolo').setDescription('🎡 Losowanie nagrody za kursy').setDMPermission(false),new SlashCommandBuilder().setName('reset').setDescription('↺ Wyzeruj kursy wszystkich osób').setDMPermission(false),new SlashCommandBuilder().setName('nagrody').setDescription('💰 Podgląd nagród przed niedzielnym zestawieniem').setDMPermission(false).addIntegerOption(o=>o.setName('strona').setDescription('Strona listy nagród').setMinValue(1)),new SlashCommandBuilder().setName('zwolnij').setDescription('📋 Zwolnij jedną lub wiele osób').setDMPermission(false).addStringOption(o=>o.setName('osoby').setDescription('Oznaczenia @osób lub ID oddzielone spacją — maks. 20').setMaxLength(1000).setRequired(true)).addStringOption(o=>o.setName('powod').setDescription('Wspólny powód zwolnienia').setMaxLength(1000).setRequired(true)),base('zatrudnij').addStringOption(o=>o.setName('imie_i_nazwisko_ic').setDescription('Opcjonalnie — bez podania zachowamy pseudonim').setMaxLength(32)),...['plus','minus','awans','degrad','zdejmijurlop'].map(name=>base(name).addStringOption(o=>o.setName('powod').setDescription('Powód').setMaxLength(1000).setRequired(true))),base('urlop').addStringOption(o=>o.setName('do_kiedy').setDescription('DD.MM — bieżący rok, do końca dnia').setRequired(true))].map(c=>c.toJSON()).filter(c=>!hidden||!['awans','degrad','urlop','zdejmijurlop','zwolnij'].includes(c.name));
@@ -34,7 +35,7 @@ export function bot(db,client,svc,env){
  client.on(Events.MessageCreate,m=>{ingestIncoming(m).catch(err=>console.error('Obsługa nowego logu',err.code||err.name));});
  client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestIncoming(m).catch(err=>console.error('Obsługa aktualizacji logu',err.code||err.name));});
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
- const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));await channel.send({...payload,allowedMentions:{parse:[]}});};
+ const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));const {art,...message}=payload;await channel.send({...message,files:actionFiles(art),allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
  const staffTablet=tablet(db,svc,card,publish,destination);
  async function setVisibility(hidden){
@@ -54,7 +55,7 @@ export function bot(db,client,svc,env){
          const outcome=l.status==='success'?'✅ Wykonano':l.status==='noop'?'ℹ️ Bez zmian':`⚠️ ${result.error||'Nie ukończono'}`;
          const actor=l.actor_name?.startsWith('Automatycznie')?'🤖 Automatycznie':`👤 <@${l.actor_id}>`;
          const description=[subject,l.reason&&`💬 ${escapeMarkdown(l.reason)}`,detail&&`↳ ${escapeMarkdown(detail)}`,`${outcome} · ${actor} · ${formatDate(l.created_at)}`].filter(Boolean).join('\n');
-         await ch.send({embeds:[card({title:labels[l.category]||'📋 Historia',description})]});
+         await ch.send({embeds:[card({title:labels[l.category]||'📋 Historia',description,art:result.art})],files:actionFiles(result.art)});
         await db.q('UPDATE logs SET delivered=true WHERE id=$1',[l.id]);
       } catch(err) { console.error('Nie wysłano logu',l.id,err.code||err.name); break; }
     }
@@ -131,12 +132,12 @@ export function bot(db,client,svc,env){
     const reason=i.options.getString('powod',true);
     const results=await bulkDismiss(svc,{people:i.options.getString('osoby',true),reason,actorId:i.user.id,channelId:destination(i.commandName,i.channelId),requestId:i.id});
     const lines=results.map(r=>r.ok?'✅ <@'+r.id+'> — zwolniono':'❌ <@'+r.id+'> — '+escapeMarkdown(r.error.slice(0,100)));
-    const payload={embeds:[card({title:'📋 Podsumowanie zwolnień',description:lines.join('\n'),fields:{'💬 Powód':reason,'👤 Wykonał(a)':'<@'+i.user.id+'>','📊 Wynik':results.filter(r=>r.ok).length+' / '+results.length+' zwolnionych'}})],allowedMentions:{parse:[]}};
-    try{await publish(i.commandName,payload,i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply(payload);}return;
+    const payload={art:'zwolnij',embeds:[card({art:'zwolnij',title:'📋 Podsumowanie zwolnień',description:lines.join('\n'),fields:{'💬 Powód':reason,'👤 Wykonał(a)':'<@'+i.user.id+'>','📊 Wynik':results.filter(r=>r.ok).length+' / '+results.length+' zwolnionych'}})],allowedMentions:{parse:[]}};
+    try{await publish(i.commandName,payload,i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{const {art,...reply}=payload;await i.editReply({...reply,files:actionFiles(art)});}return;
    }
    const target=i.options.getUser('osoba',true);
    const result=await svc.run({kind:i.commandName,actorId:i.user.id,targetId:target.id,reason:i.options.getString('powod')||'',channelId:i.channelId,requestId:i.id,icName:i.options.getString('imie_i_nazwisko_ic'),endsAt:i.commandName==='urlop'?parseLeaveDate(i.options.getString('do_kiedy'),{end:true}):undefined});
-   try{await publish(i.commandName,{embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
+   try{await publish(i.commandName,{art:result.art,embeds:[card(result)]},i.channelId);await i.deleteReply().catch(err=>console.error('Usunięcie potwierdzenia',err.code||err.name));}catch{await i.editReply({embeds:[card(result)],files:actionFiles(result.art),content:'Działanie zapisano, ale nie udało się wysłać wiadomości na kanał.'});}
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{await staffTablet.panel(client);await badgeGenerator.panel();await coursePanel();}};
 }
