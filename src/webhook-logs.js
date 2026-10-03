@@ -41,11 +41,11 @@ export function parseWebhookLog(title,description){
 export function webhookNotice(event,targetId){
  const person=targetId?`<@${targetId}> (${escapeMarkdown(event.person)})`:escapeMarkdown(event.person),actor=escapeMarkdown(event.actor);
  if(event.kind==='zdejmijurlop')return {channel:'1502336468016828567',title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
- if(event.kind==='urlop')return {channel:'1502336468016828567',title:'🌴 Urlop pracownika',body:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`};
+ if(event.kind==='urlop')return {channel:'1502336468016828567',title:'🌴 Urlop pracownika',body:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`,art:'urlop'};
  const titles={awans:'📈 Awans pracownika',degrad:'📉 Degradacja pracownika',zwolnij:'📋 Zakończenie współpracy'};
  const who={awans:'Awansował(a)',degrad:'Zdegradował(a)',zwolnij:'Zwolnił(a)'};
  const reason=event.kind==='awans'?'Wyrobienie normy awansowej':'Brak wyrobionej normy';
- return {channel:config.actionChannels[event.kind],title:titles[event.kind],body:`👤 **Pracownik:** ${person}\n${event.before?`🍟 **Stanowisko:** ${event.before} → ${event.after}\n`:''}💬 **Powód:** ${reason}\n👤 **${who[event.kind]}:** ${actor}`};
+ return {channel:config.actionChannels[event.kind],title:titles[event.kind],body:`👤 **Pracownik:** ${person}\n${event.before?`🍟 **Stanowisko:** ${event.before} → ${event.after}\n`:''}💬 **Powód:** ${reason}\n👤 **${who[event.kind]}:** ${actor}`,art:event.kind==='zwolnij'?'zwolnij':undefined};
 }
 export async function ingestWebhookLog(db,message,guildId){
  if(message.guildId!==guildId||message.channelId!==sourceChannel||!message.webhookId)return false;
@@ -97,7 +97,7 @@ export async function processWebhookLogs(db,svc){
    }
    const notice=webhookNotice(item.event,targetId);
    await db.transaction(async tx=>{
-    await tx.query('INSERT INTO notifications(channel_id,user_id,title,body) VALUES($1,$2,$3,$4)',[notice.channel,targetId,notice.title,notice.body]);
+    await tx.query('INSERT INTO notifications(channel_id,user_id,title,body,art) VALUES($1,$2,$3,$4,$5)',[notice.channel,targetId,notice.title,notice.body,notice.art||null]);
     await tx.query("UPDATE imported_webhook_logs SET status='done' WHERE message_id=$1",[item.message_id]);
    });
   }catch(err){
