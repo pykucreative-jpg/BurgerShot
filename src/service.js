@@ -325,7 +325,7 @@ export function service(db, client, env) {
             if(m.nickname?.toLowerCase().includes('[urlop]')){await m.setNickname(clearLeaveNickname(m.nickname));steps.push('Usunięto dopisek urlop');}
           }
         }else throw new UserError('Nieznane działanie z logu.');
-        return {title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
+        return {art:event.kind==='zwolnij'?'zwolnij':event.kind==='urlop'?'urlop':undefined,title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
       });
     });
   }
