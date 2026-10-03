@@ -116,7 +116,7 @@ export function bot(db,client,svc,env){
    if(!i.inGuild()||i.guildId!==env.guildId)throw new UserError('Użyj komendy na serwerze BurgerShot.');
    if(i.commandName==='kolo'){
     const result=await svc.spinWheel(i.user.id);
-     await i.reply({embeds:[card({title:'🎡 KOŁO NAGRÓD BURGERSHOT',description:`<@${i.user.id}> zakręca kołem…\n\n🎁 **${result.prize}**\n\nNagrody wypłaca Zarząd w niedzielę.`,fields:{'📚 Ukończone kursy':String(result.courses),'🎟️ Dostępne losowania':String(result.spins),'🍔 Status':result.staff?'Zarząd':'Firma DC'}})],allowedMentions:{users:[i.user.id],parse:[]}});return;
+     await i.reply({flags:MessageFlags.Ephemeral,embeds:[card({title:'🎡 TWOJE KOŁO NAGRÓD',description:`Zakręcono kołem…\n\n🎁 **${result.prize}**\n\nNagrody wypłaca Zarząd w niedzielę. Ten wynik widzisz tylko Ty.`,fields:{'📚 Ukończone kursy':String(result.courses),'🎟️ Pozostałe losowania':String(result.spins),'🍔 Status':result.staff?'Zarząd':'Firma DC'}})]});return;
    }
    await i.deferReply({flags:MessageFlags.Ephemeral});await svc.authorize(i.user.id);
    if(i.commandName==='komenda'){
