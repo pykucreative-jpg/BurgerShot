@@ -36,6 +36,10 @@ export function parseWebhookLog(title,description){
   m=/^(.+?) zwolnił\(a\) gracza (.+?) z firmy Burgershot\.?\s*(?:Identifier:.*)?$/i.exec(body);
   if(m)return {kind:'zwolnij',actor:m[1],person:m[2]};
  }
+ if(/^BURGERSHOT\s*-\s*Zerowanie kursów\s*\(wszyscy\)$/i.test(title)){
+  m=/^(.+?) wyzerował\(a\) kursy tygodniowe (\d+) pracownikom \(łącznie (\d+) kursów\)\.?$/i.exec(body);
+  if(m)return {kind:'reset-kursy',actor:m[1],employees:Number(m[2]),courses:Number(m[3])};
+ }
  return null;
 }
 export function webhookNotice(event,targetId){
@@ -52,8 +56,10 @@ export async function ingestWebhookLog(db,message,guildId){
  const events=(message.embeds||[]).map(e=>parseWebhookLog(e.title,e.description)).filter(Boolean);
  // Ambiguous or unrecognized logs must never become invented personnel announcements.
  if(events.length!==1)return false;
- const notice=webhookNotice(events[0]);
- if(!notice.channel||notice.channel===sourceChannel)throw new Error('Invalid webhook destination');
+ if(events[0].kind!=='reset-kursy'){
+  const notice=webhookNotice(events[0]);
+  if(!notice.channel||notice.channel===sourceChannel)throw new Error('Invalid webhook destination');
+ }
  return db.transaction(async tx=>{
   const inserted=await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,message.webhookId,JSON.stringify(events[0])]);
   if(!inserted.rows.length)return false;
@@ -79,6 +85,12 @@ export async function processWebhookLogs(db,svc){
   if((await db.q('SELECT status FROM imported_webhook_logs WHERE message_id=$1',[item.message_id])).rows[0].status!=='pending')return;
   try{
    const existing=(await db.q('SELECT status,target_id FROM logs WHERE request_id=$1',[`webhook:${item.message_id}`])).rows[0];
+   if(item.event.kind==='reset-kursy'){
+    if(existing){if(!['success','noop'].includes(existing.status))throw new Error('Zerowanie kursów było przerwane lub nieudane. Sprawdź historię.');}
+    else await svc.resetCoursesFromWebhook(item.event,item.message_id);
+    await db.q("UPDATE imported_webhook_logs SET status='done' WHERE message_id=$1",[item.message_id]);
+    return;
+   }
    let targetId;
    if(existing){
     if(!['success','noop'].includes(existing.status))throw new Error('Działanie było przerwane lub nieudane. Sprawdź historię przed ręcznym ponowieniem.');
@@ -102,7 +114,7 @@ export async function processWebhookLogs(db,svc){
    });
   }catch(err){
    await db.transaction(async tx=>{
-    await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie wykonano automatycznego działania',`${escapeMarkdown(item.event.person)} — ${escapeMarkdown(item.event.kind)}\n${escapeMarkdown(err.message)}\nSprawdź pracownika i historię operacji.`]);
+    await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie wykonano automatycznego działania',`${escapeMarkdown(item.event.person||'Wszyscy pracownicy')} — ${escapeMarkdown(item.event.kind)}\n${escapeMarkdown(err.message)}\nSprawdź historię operacji.`]);
     await tx.query("UPDATE imported_webhook_logs SET status='failed' WHERE message_id=$1",[item.message_id]);
    });
   }
