@@ -1,11 +1,11 @@
 import {ingestWebhookLog,processWebhookLogs} from './webhook-logs.js';
 import {ingestCourseLog,processCourseLogs} from './course-wheel.js';
-import {previewRewards} from './rewards.js';
+import {previewRewards,rewardReport,payReward} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
 import {actionFiles,actionThumbnail} from './action-art.js';
-import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown,ActionRowBuilder,ButtonBuilder,ButtonStyle} from 'discord.js';
+import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown,ActionRowBuilder,ButtonBuilder,ButtonStyle,StringSelectMenuBuilder} from 'discord.js';
 import {config,labels} from './config.js';
 import {UserError,parseLeaveDate,formatDate} from './domain.js';
 export const makeClient=()=>new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent],allowedMentions:{parse:[]}});
@@ -38,6 +38,20 @@ export function bot(db,client,svc,env){
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));const {art,...message}=payload;await channel.send({...message,files:actionFiles(art),allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
  const staffTablet=tablet(db,svc,card,publish,destination);
+ const rewardMessage=async(cutoff,page,title)=>{
+   const report=await rewardReport(db,cutoff,page);
+   const components=report.entries.length?[new ActionRowBuilder().addComponents(
+     new StringSelectMenuBuilder()
+       .setCustomId(`rewards:pay:${new Date(cutoff).getTime()}:${report.page}`)
+       .setPlaceholder('Wybierz nagrodę po wypłacie')
+       .addOptions(report.entries.map(item=>({
+         label:`${String(item.name||item.target_id)} — ${item.kind==='wheel'?'Koło':'5/5'}`.slice(0,100),
+         description:(item.kind==='wheel'?String(item.prize||'Nagroda z koła'):'Nagroda za komplet 5/5').slice(0,100),
+         value:String(item.id)
+       })))
+   )]:[];
+   return {embeds:[card({title,description:report.description})],components,allowedMentions:{parse:[]}};
+ };
  async function setVisibility(hidden){
   await db.lock('command-visibility',async()=>{
    await (await svc.guild()).commands.set(commands(hidden));
@@ -63,7 +77,8 @@ export function bot(db,client,svc,env){
     for(const n of pending) {
       try {
         const channel=await client.channels.fetch(n.channel_id);
-        await channel.send({content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]},embeds:[card({title:n.title,description:n.body,art:n.art})],files:actionFiles(n.art),components:n.reward_cutoff?[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('rewards:settle:'+n.reward_cutoff).setLabel('✅ Rozliczono').setStyle(ButtonStyle.Success))]:[]});
+        const payload=n.reward_cutoff?await rewardMessage(n.reward_cutoff,n.reward_page,n.title):{embeds:[card({title:n.title,description:n.body,art:n.art})],files:actionFiles(n.art),components:[]};
+        await channel.send({...payload,content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]}});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);}
     }
@@ -80,16 +95,20 @@ export function bot(db,client,svc,env){
   });
  }
  client.on(Events.InteractionCreate,async i=>{
-  if(i.customId?.startsWith('rewards:settle:')){
+  if(i.customId?.startsWith('rewards:pay:')){
    if(!i.inGuild()||i.guildId!==env.guildId)return;
    try{
     await svc.authorize(i.user.id);await i.deferUpdate();
-    const cutoff=i.customId.slice('rewards:settle:'.length);
-    const settled=await db.q('UPDATE reward_reports SET settled_at=now(),settled_by=$2 WHERE cutoff=$1 AND settled_at IS NULL RETURNING cutoff',[cutoff,i.user.id]);
-    if(!settled.rowCount){await i.editReply({components:[]});return;}
-    const embed=EmbedBuilder.from(i.message.embeds[0]).setThumbnail(brandAvatar).setFooter({text:'🍔 BurgerShot • Rozliczono przez '+i.user.username});
-    await i.editReply({embeds:[embed],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('rewards:done').setLabel('✅ Rozliczono').setStyle(ButtonStyle.Secondary).setDisabled(true))]});
-   }catch(err){if(!i.deferred)await i.reply({flags:MessageFlags.Ephemeral,content:err instanceof UserError?err.message:'Nie udało się rozliczyć zestawienia.'}).catch(()=>{});else console.error('Rozliczenie nagród',err.code||err.name);}
+    const [, , timestamp,page]=i.customId.split(':');
+    const cutoff=new Date(Number(timestamp)).toISOString(),result=await payReward(db,{cutoff,logId:i.values[0],actorId:i.user.id});
+    if(!result.paid){await i.followUp({flags:MessageFlags.Ephemeral,content:'Ta nagroda została już rozliczona.'});}
+    const title=i.message.embeds[0]?.title||'💰 BurgerShot • Nagrody';
+    await i.editReply(await rewardMessage(cutoff,Number(page),title));
+   }catch(err){if(!i.deferred)await i.reply({flags:MessageFlags.Ephemeral,content:err instanceof UserError?err.message:'Nie udało się rozliczyć nagrody.'}).catch(()=>{});else console.error('Rozliczenie nagrody',err.code||err.name);}
+   return;
+  }
+  if(i.customId?.startsWith('rewards:settle:')){
+   await i.reply({flags:MessageFlags.Ephemeral,content:'To stare zestawienie. Nowe listy rozlicza się pojedynczo, wybierając konkretną nagrodę.'}).catch(()=>{});
    return;
   }
   if(i.customId==='badges:generate'){if(!i.inGuild()||i.guildId!==env.guildId)return;await badgeGenerator.handle(i);return;}
