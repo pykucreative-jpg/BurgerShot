@@ -110,3 +110,10 @@ test('degradacja kierownika zmiany odbiera zarząd w komendzie i imporcie',async
  await target.roles.add(config.staff);await run('degrad');assert.ok(target.roles.cache.has(config.staff));
 });
 
+test('info kursów zwraca prosty podział bieżącego tygodnia',async t=>{
+ const {svc,db}=await setup(t);
+ await db.q("INSERT INTO course_events(message_id,user_id,player_name,course_number) VALUES('info-1','1','Jan Kowalski',4),('info-2','2','Anna Nowak',4)");
+ const info=await svc.weeklyCourseInfo();
+ assert.equal(info.total,2);assert.equal(info.days.length,7);assert.equal(info.days.reduce((sum,value)=>sum+value,0),2);
+});
+
