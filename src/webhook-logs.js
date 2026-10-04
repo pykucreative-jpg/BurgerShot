@@ -1,9 +1,12 @@
 import {escapeMarkdown} from 'discord.js';
+import {DateTime} from 'luxon';
 import {config} from './config.js';
 export const sourceChannel='1530621541325340682';
 const ranks=config.ranks.map(rank=>rank.name);
 const clean=s=>String(s||'').replace(/\*\*|__|`/g,'').replace(/\s+/g,' ').trim();
 const rankIndex=s=>ranks.findIndex(r=>r.toLocaleLowerCase('pl')===s.toLocaleLowerCase('pl'));
+const leaveTime=value=>{const parsed=DateTime.fromFormat(value,'yyyy-MM-dd HH:mm',{zone:'Europe/Warsaw'});return parsed.isValid?parsed.toUTC().toISO():null;};
+const leaveDate=value=>DateTime.fromISO(value,{zone:'utc'}).setZone('Europe/Warsaw').toFormat('dd.MM.yyyy HH:mm');
 export const webhookRanks=config.ranks;
 export const normalizedName=s=>clean(s).replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim().toLocaleLowerCase('pl');
 export function matchEmployee(name,members,employees){
@@ -31,6 +34,8 @@ export function parseWebhookLog(title,description){
  if(/^BURGERSHOT\s*-\s*Urlop pracownika$/i.test(title)){
   m=/^(.+?) wysłał\(a\) na urlop pracownika (.+?) \(bezterminowo\)\.?$/i.exec(body);
   if(m)return {kind:'urlop',actor:m[1],person:m[2]};
+  m=/^(.+?) wysłał\(a\) na urlop pracownika (.+?) \(od (\d{4}-\d\d-\d\d \d\d:\d\d) do (\d{4}-\d\d-\d\d \d\d:\d\d)\)\.?$/i.exec(body);
+  if(m){const startsAt=leaveTime(m[3]),endsAt=leaveTime(m[4]);if(startsAt&&endsAt&&new Date(endsAt)>new Date(startsAt))return {kind:'urlop',actor:m[1],person:m[2],startsAt,endsAt};}
  }
  if(/^BURGERSHOT\s*-\s*Zwolnienie Pracownika$/i.test(title)){
   m=/^(.+?) zwolnił\(a\) gracza (.+?) z firmy Burgershot\.?\s*(?:Identifier:.*)?$/i.exec(body);
@@ -45,7 +50,7 @@ export function parseWebhookLog(title,description){
 export function webhookNotice(event,targetId){
  const person=targetId?`<@${targetId}> (${escapeMarkdown(event.person)})`:escapeMarkdown(event.person),actor=escapeMarkdown(event.actor);
  if(event.kind==='zdejmijurlop')return {channel:'1502336468016828567',title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
- if(event.kind==='urlop')return {channel:'1502336468016828567',title:'🌴 Urlop pracownika',body:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`,art:'urlop'};
+ if(event.kind==='urlop')return {channel:'1502336468016828567',title:'🌴 Urlop pracownika',body:event.endsAt?`👤 **Pracownik:** ${person}\n📅 **Od:** ${leaveDate(event.startsAt)}\n📅 **Do:** ${leaveDate(event.endsAt)}\n👤 **Urlopu udzielił(a):** ${actor}`:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`,art:'urlop'};
  const titles={awans:'📈 Awans pracownika',degrad:'📉 Degradacja pracownika',zwolnij:'📋 Zakończenie współpracy'};
  const who={awans:'Awansował(a)',degrad:'Zdegradował(a)',zwolnij:'Zwolnił(a)'};
  const reason=event.kind==='awans'?'Wyrobienie normy awansowej':'Brak wyrobionej normy';
