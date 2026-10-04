@@ -60,7 +60,10 @@ CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT 
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_page integer NOT NULL DEFAULT 0;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS art text;
+ALTER TABLE reported_rewards ADD COLUMN IF NOT EXISTS paid_at timestamptz;
+ALTER TABLE reported_rewards ADD COLUMN IF NOT EXISTS paid_by text;
 
 CREATE TABLE IF NOT EXISTS imported_webhook_logs(message_id text PRIMARY KEY,webhook_id text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
 ALTER TABLE imported_webhook_logs ADD COLUMN IF NOT EXISTS event jsonb;
