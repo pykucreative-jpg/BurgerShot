@@ -11,9 +11,19 @@ test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  assert.equal(demotion.kind,'degrad');assert.match(webhookNotice(demotion).body,/Brak wyrobionej normy/);
  const leave=parseWebhookLog('BURGERSHOT - Urlop pracownika','Ashe Moore wysłał(a) na urlop pracownika Basile Savage (bezterminowo).');assert.equal(leave.person,'Basile Savage');assert.equal(webhookNotice(leave).channel,'1502336468016828567');assert.equal(webhookNotice(leave).art,'urlop');
  const dismissal=parseWebhookLog('BURGERSHOT - Zwolnienie\nPracownika','David Alfonso zwolnił(a) gracza Oscar Koby z firmy Burgershot\nIdentifier: `char1:1163815030274396301`');assert.equal(dismissal.person,'Oscar Koby');assert.ok(!webhookNotice(dismissal).body.includes('char1'));assert.equal(webhookNotice(dismissal).art,'zwolnij');
+ const reset=parseWebhookLog('BURGERSHOT - Zerowanie kursów (wszyscy)','Ashe Moore wyzerował(a) kursy tygodniowe 39 pracownikom (łącznie 1415 kursów).');assert.deepEqual(reset,{kind:'reset-kursy',actor:'Ashe Moore',employees:39,courses:1415});
  assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Szefowa na Nieznany.'),null);
  assert.deepEqual(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Menadżer na Zastępca szefa.'),{kind:'awans',actor:'A',person:'B',before:'Menadżer',after:'Zastępca szefa'});
  assert.equal(parseWebhookLog(title,'A zmienił(a) stopień pracownika B z Pracownik na Pracownik.'),null);
+});
+
+test('log zerowania kursów uruchamia reset bez szukania pracownika ani powiadomienia',async t=>{
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={q:(s,p)=>pg.query(s,p),lock:async(k,fn)=>fn(),transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
+ const message={id:'reset-log',guildId:'guild',channelId:sourceChannel,webhookId:'hook',embeds:[{title:'BURGERSHOT - Zerowanie kursów (wszyscy)',description:'Ashe Moore wyzerował(a) kursy tygodniowe 39 pracownikom (łącznie 1415 kursów).'}]};
+ let calls=0;const svc={resetCoursesFromWebhook:async(event,id)=>{calls++;assert.equal(event.actor,'Ashe Moore');assert.equal(id,'reset-log');}};
+ await ingestWebhookLog(db,message,'guild');await processWebhookLogs(db,svc);await processWebhookLogs(db,svc);
+ assert.equal(calls,1);assert.equal((await pg.query('SELECT * FROM notifications')).rows.length,0);assert.equal((await pg.query("SELECT status FROM imported_webhook_logs WHERE message_id='reset-log'")).rows[0].status,'done');
 });
 test('tylko webhook na źródle; trwała deduplikacja i brak zmian kadrowych',async t=>{
  const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
