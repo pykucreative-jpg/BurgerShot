@@ -328,11 +328,15 @@ export function service(db, client, env) {
           await db.q('UPDATE employees SET rank=$2 WHERE user_id=$1',[m.id,rank.name]);
         }else if(event.kind==='zwolnij')await dismiss(m,steps,reason);
         else if(event.kind==='urlop'){
+          const startsAt=event.startsAt?new Date(event.startsAt):new Date();
+          const endsAt=event.endsAt?new Date(event.endsAt):null;
+          if(endsAt&&endsAt<=startsAt)throw new UserError('Nieprawidłowy termin urlopu w logu serwera.');
           let l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rows[0];
-          if(l){await db.q("UPDATE leaves SET ends_at=NULL,starts_at=now(),status='scheduled',channel_id=$2 WHERE id=$1",[l.id,channelId]);l={...l,status:l.applied_nick?'starting':'scheduled',ends_at:null};}
-          else l=(await db.q("INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,now(),NULL,'scheduled',$3,$4,$5) RETURNING *",[m.id,e.ic_name,channelId,client.user.id,event.actor])).rows[0];
-          steps.push('Zapisano urlop bezterminowy');
-          await activate(l,m,steps);
+          if(l){await db.q("UPDATE leaves SET starts_at=$2,ends_at=$3,status='scheduled',channel_id=$4 WHERE id=$1",[l.id,startsAt,endsAt,channelId]);l=(await db.q('SELECT * FROM leaves WHERE id=$1',[l.id])).rows[0];}
+          else l=(await db.q("INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,$3,$4,'scheduled',$5,$6,$7) RETURNING *",[m.id,e.ic_name,startsAt,endsAt,channelId,client.user.id,event.actor])).rows[0];
+          steps.push(endsAt?'Zapisano urlop z terminem zakończenia':'Zapisano urlop bezterminowy');
+          if(startsAt<=new Date())await activate(l,m,steps);
+          else steps.push('Urlop oczekuje na rozpoczęcie');
         }else if(event.kind==='zdejmijurlop'){
           const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rows[0];
           if(l)await endLeave(l,m,steps);
