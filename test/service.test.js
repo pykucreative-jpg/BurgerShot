@@ -43,6 +43,7 @@ test('reset kursów jest dostępny tylko dla Zarządu i zachowuje losowania',asy
  for(let n=1;n<=20;n++)await svc.recordCourse({targetId:target.id,messageId:'reset-kurs-'+n,playerName:'Jan Kowalski',courseNumber:4});
  const result=await svc.resetCourses(actor.id);assert.equal(result.count,1);
  const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[target.id])).rows[0];assert.equal(progress.courses_completed,0);assert.equal(progress.spins_available,1);assert.equal(progress.spins_used,0);
+ assert.equal((await svc.weeklyCourseInfo()).total,0);
  actor.roles.cache.clear();await assert.rejects(()=>svc.resetCourses(actor.id),/uprawnionej kadry/);
 });
 test('profil prywatny oraz status bota pokazują kursy i urlopy',async t=>{
