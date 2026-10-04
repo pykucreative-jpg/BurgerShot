@@ -11,6 +11,7 @@ export function service(db, client, env) {
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   let courseMemberCache={at:0,members:new Map()};
+  const currentWeek=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('week');return [start.toUTC().toJSDate(),start.plus({days:7}).toUTC().toJSDate()];};
   async function companyMembers() {
     if(Date.now()-companyCache.at<60000)return companyCache.items;
     const g=await guild();
@@ -139,6 +140,7 @@ export function service(db, client, env) {
     return db.lock('course-progress-reset',async()=>db.transaction(async tx=>{
       const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,last_course_at=NULL,updated_at=now()
         WHERE courses_completed<>0 RETURNING user_id`);
+      await tx.query('DELETE FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2',currentWeek());
       await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,reason,details,status,channel_id)
         VALUES($1,'reset',$2,$3,$4,$5,'success',$6)`,[`course-reset:${Date.now()}`,actor.id,actor.name,'Wyzerowano liczniki kursów. Losowania pozostają na kontach.',JSON.stringify({description:`↺ Wyzerowano kursy dla **${reset.rowCount}** osób. Zdobyte losowania zostały zachowane.`}),config.logs]);
       return {count:reset.rowCount};
@@ -148,6 +150,7 @@ export function service(db, client, env) {
     return db.lock('course-progress-reset',async()=>db.transaction(async tx=>{
       const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,last_course_at=NULL,updated_at=now()
         WHERE courses_completed<>0 RETURNING user_id`);
+      await tx.query('DELETE FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2',currentWeek());
       await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,reason,details,status,channel_id)
         VALUES($1,'reset',$2,$3,$4,$5,'success',$6)`,[`webhook:${messageId}`,client.user.id,`${event.actor} (log serwera)`,'Automatyczne zerowanie kursów tygodniowych.',JSON.stringify({description:`↺ Automatycznie wyzerowano kursy dla **${reset.rowCount}** osób. Zdobyte losowania kołem pozostają na kontach.`}),config.logs]);
       return {count:reset.rowCount};
@@ -273,7 +276,10 @@ export function service(db, client, env) {
   async function activate(l,m,steps=[]) {
     await checkRoles(m,[config.leave]);
     const nick=l.applied_nick || leaveNickname(m.displayName);
-    if(l.status!=='starting') await db.q("UPDATE leaves SET status='starting',old_nick=$2,applied_nick=$3 WHERE id=$1",[l.id,m.nickname,nick]);
+    if(l.status!=='starting'){
+      if(l.applied_nick)await db.q("UPDATE leaves SET status='starting' WHERE id=$1",[l.id]);
+      else await db.q("UPDATE leaves SET status='starting',old_nick=$2,applied_nick=$3 WHERE id=$1",[l.id,m.nickname,nick]);
+    }
     await m.roles.add(config.leave,'BurgerShot: urlop'); steps.push('Nadano rangę urlopową');
     await m.setNickname(nick); steps.push('Ustawiono dopisek urlop');
     await db.q("UPDATE leaves SET status='active',error=NULL,retry_at=NULL WHERE id=$1",[l.id]);
