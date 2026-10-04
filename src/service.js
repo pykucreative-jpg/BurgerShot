@@ -144,6 +144,15 @@ export function service(db, client, env) {
       return {count:reset.rowCount};
     }));
   }
+  async function resetCoursesFromWebhook(event,messageId) {
+    return db.lock('course-progress-reset',async()=>db.transaction(async tx=>{
+      const reset=await tx.query(`UPDATE course_progress SET courses_completed=0,last_course_at=NULL,updated_at=now()
+        WHERE courses_completed<>0 RETURNING user_id`);
+      await tx.query(`INSERT INTO logs(request_id,category,actor_id,actor_name,reason,details,status,channel_id)
+        VALUES($1,'reset',$2,$3,$4,$5,'success',$6)`,[`webhook:${messageId}`,client.user.id,`${event.actor} (log serwera)`,'Automatyczne zerowanie kursów tygodniowych.',JSON.stringify({description:`↺ Automatycznie wyzerowano kursy dla **${reset.rowCount}** osób. Zdobyte losowania kołem pozostają na kontach.`}),config.logs]);
+      return {count:reset.rowCount};
+    }));
+  }
   async function resetCoursesOnRelease() {
     return db.lock('course-progress-release-reset',async()=>db.transaction(async tx=>{
       const marker=await tx.query("INSERT INTO bot_settings(key,value) VALUES('course_progress_reset_2026_10_02','done') ON CONFLICT(key) DO NOTHING RETURNING key");
@@ -337,6 +346,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,personalProfile,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
 
