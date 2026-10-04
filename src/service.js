@@ -1,4 +1,5 @@
 import { randomInt } from 'node:crypto';
+import {DateTime} from 'luxon';
 import { config } from './config.js';
 import {webhookRanks,webhookNotice} from './webhook-logs.js';
 import {matchCourseEmployee} from './course-wheel.js';
@@ -114,6 +115,13 @@ export function service(db, client, env) {
     if(!staff&&!employeeRole)throw new UserError('Panel kursów jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
     const progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[userId])).rows[0]||{courses_completed:0,spins_available:0,spins_used:0};
     return {courses:progress.courses_completed,spins:progress.spins_available,staff,remaining:20-(progress.courses_completed%20)||20};
+  }
+  async function weeklyCourseInfo(){
+    const start=DateTime.now().setZone('Europe/Warsaw').startOf('week'),end=start.plus({days:7});
+    const rows=(await db.q('SELECT created_at FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2',[start.toUTC().toJSDate(),end.toUTC().toJSDate()])).rows;
+    const days=Array(7).fill(0);
+    for(const row of rows){const day=DateTime.fromJSDate(new Date(row.created_at),{zone:'utc'}).setZone('Europe/Warsaw').weekday;if(day>=1&&day<=7)days[day-1]++;}
+    return {total:rows.length,days};
   }
   async function personalProfile(userId) {
     const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
@@ -329,6 +337,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,personalProfile,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,personalProfile,resetCourses,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
 
