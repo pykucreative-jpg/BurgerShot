@@ -32,6 +32,7 @@ test('dwadzieścia kursów odblokowuje jedno koło dla Firma DC i Zarządu',asyn
  for(let n=1;n<=20;n++)await svc.recordCourse({targetId,messageId:'kurs-'+n,playerName:'Jan Kowalski',courseNumber:4});
  let progress=(await db.q('SELECT * FROM course_progress WHERE user_id=$1',[targetId])).rows[0];assert.equal(progress.courses_completed,20);assert.equal(progress.spins_available,1);
  const status=await svc.courseStatus(targetId);assert.equal(status.courses,20);assert.equal(status.spins,1);
+ const ranking=await svc.courseRanking();assert.deepEqual(ranking.map(row=>[row.user_id,row.courses_completed]),[[targetId,20]]);
  const employeeSpin=await svc.spinWheel(targetId);assert.ok(employeeSpin.prize);assert.equal(employeeSpin.spins,0);
  for(let n=1;n<=20;n++)await svc.recordCourse({targetId:actorId,messageId:'staff-kurs-'+n,playerName:'Anna Nowak',courseNumber:4});
  const staffSpin=await svc.spinWheel(actorId);assert.equal(staffSpin.staff,true);assert.equal(staffSpin.spins,0);
@@ -91,6 +92,7 @@ test('webhook ustawia dokładny stopień i obsługuje urlop bezterminowy',async 
  assert.ok(target.roles.cache.has(config.leave));assert.equal((await db.q('SELECT ends_at FROM leaves')).rows[0].ends_at,null);
  await apply('urlop','w3');await apply('zdejmijurlop','w4');
  assert.equal(target.roles.cache.has(config.leave),false);assert.equal(target.nickname,'Jan Kowalski');
+ assert.equal((await apply('zdejmijurlop','w4-repeat')).skipNotice,true);
  await apply('degrad','w5',{before:'Starszy Pracownik',after:'Pracownik'});assert.ok(target.roles.cache.has(config.ranks[2].id));
  await apply('zwolnij','w6');assert.equal(members.has(targetId),false);
 });
