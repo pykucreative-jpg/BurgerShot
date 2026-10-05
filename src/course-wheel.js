@@ -11,7 +11,7 @@ export function parseCourseLog(title,description){
  return match&&(courseNumber===1||courseNumber===4)?{player:match[1],courseNumber}:null;
 }
 const canonical=value=>normalizedName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
-export const courseEventKey=(event,at)=>{const date=new Date(at);const stamp=Number.isNaN(date.getTime())?String(at):date.toISOString();return `${canonical(event.player)}|${event.courseNumber}|${stamp}`;};
+export const courseEventKey=(event,at)=>{const date=new Date(at);const bucket=Number.isNaN(date.getTime())?String(at):Math.floor(date.getTime()/120000);return `${canonical(event.player)}|${event.courseNumber}|${bucket}`;};
 export const courseAccountId=player=>{const bracket=[...String(player).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1]||player;return config.courseAccounts?.[canonical(bracket)]||null;};
 const memberId=person=>person.user_id||person.id;
 const memberNames=person=>[person.ic_name,person.displayName,person.nickname,person.username,person.user?.username,person.user?.globalName].filter(Boolean).map(canonical);
