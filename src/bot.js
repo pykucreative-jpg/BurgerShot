@@ -143,7 +143,7 @@ export function bot(db,client,svc,env){
    }
    if(i.commandName==='ranking'){
     await svc.authorize(i.user.id);const rows=await svc.courseRanking();
-    await i.reply({embeds:[card({title:'🏆 RANKING KURSÓW',description:rows.length?rows.map((row,index)=>`**${index+1}.** <@${row.user_id}> — **${row.courses_completed}** kursów`).join('\n'):'Brak osób z kursami na koncie.'})],allowedMentions:{parse:[]}});return;
+    await i.reply({embeds:[card({title:'🏆 RANKING KURSÓW • TEN TYDZIEŃ',description:rows.length?rows.map((row,index)=>`**${index+1}.** <@${row.user_id}> — **${row.courses_completed}** kursów`).join('\n'):'Brak osób z kursami w tym tygodniu.'})],allowedMentions:{parse:[]}});return;
    }
    if(i.commandName==='wyplac'){
     await svc.authorize(i.user.id);
