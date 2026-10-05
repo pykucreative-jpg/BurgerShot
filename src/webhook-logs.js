@@ -97,6 +97,7 @@ export async function processWebhookLogs(db,svc){
     return;
    }
    let targetId;
+   let applied;
    if(existing){
     if(!['success','noop'].includes(existing.status))throw new Error('Działanie było przerwane lub nieudane. Sprawdź historię przed ręcznym ponowieniem.');
     targetId=existing.target_id;
@@ -110,11 +111,11 @@ export async function processWebhookLogs(db,svc){
      throw err;
     }
     targetId=matchEmployee(item.event.person,members,(await db.q("SELECT user_id,ic_name FROM employees WHERE status='active'")).rows);
-    await svc.applyWebhook(item.event,targetId,item.message_id);
+    applied=await svc.applyWebhook(item.event,targetId,item.message_id);
    }
    const notice=webhookNotice(item.event,targetId);
    await db.transaction(async tx=>{
-    await tx.query('INSERT INTO notifications(channel_id,user_id,title,body,art) VALUES($1,$2,$3,$4,$5)',[notice.channel,targetId,notice.title,notice.body,notice.art||null]);
+    if(!applied?.skipNotice)await tx.query('INSERT INTO notifications(channel_id,user_id,title,body,art) VALUES($1,$2,$3,$4,$5)',[notice.channel,targetId,notice.title,notice.body,notice.art||null]);
     await tx.query("UPDATE imported_webhook_logs SET status='done' WHERE message_id=$1",[item.message_id]);
    });
   }catch(err){
