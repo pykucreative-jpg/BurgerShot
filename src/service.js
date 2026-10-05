@@ -124,6 +124,11 @@ export function service(db, client, env) {
     for(const row of rows){const day=DateTime.fromJSDate(new Date(row.created_at),{zone:'utc'}).setZone('Europe/Warsaw').weekday;if(day>=1&&day<=7)days[day-1]++;}
     return {total:rows.length,days};
   }
+  async function courseRanking(){
+    const company=new Map((await companyMembers()).map(member=>[member.user_id,member]));
+    const rows=(await db.q('SELECT user_id,courses_completed,spins_available FROM course_progress WHERE courses_completed>0 ORDER BY courses_completed DESC,user_id LIMIT 100')).rows;
+    return rows.filter(row=>company.has(row.user_id)).map(row=>({...row,name:company.get(row.user_id).ic_name}));
+  }
   async function personalProfile(userId) {
     const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
     if(!staff&&!employeeRole)throw new UserError('Mój profil jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
@@ -346,16 +351,17 @@ export function service(db, client, env) {
         }else if(event.kind==='zdejmijurlop'){
           const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rows[0];
           if(l)await endLeave(l,m,steps);
-          else{
+          else if(m.roles.cache.has(config.leave)||m.nickname?.toLowerCase().includes('[urlop]')){
             await checkRoles(m,[config.leave]);
             await m.roles.remove(config.leave);steps.push('Zdjęto rangę urlopową');
             if(m.nickname?.toLowerCase().includes('[urlop]')){await m.setNickname(clearLeaveNickname(m.nickname));steps.push('Usunięto dopisek urlop');}
           }
+          else return {noop:true,skipNotice:true};
         }else throw new UserError('Nieznane działanie z logu.');
         return {art:event.kind==='zwolnij'?'zwolnij':event.kind==='urlop'?'urlop':undefined,title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,courseRanking,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
 }
 
