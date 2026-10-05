@@ -126,7 +126,8 @@ export function service(db, client, env) {
   }
   async function courseRanking(){
     const company=new Map((await companyMembers()).map(member=>[member.user_id,member]));
-    const rows=(await db.q('SELECT user_id,courses_completed,spins_available FROM course_progress WHERE courses_completed>0 ORDER BY courses_completed DESC,user_id LIMIT 100')).rows;
+    const [start,end]=currentWeek();
+    const rows=(await db.q('SELECT user_id,count(*)::int AS courses_completed FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2 GROUP BY user_id ORDER BY courses_completed DESC,user_id LIMIT 100',[start,end])).rows;
     return rows.filter(row=>company.has(row.user_id)).map(row=>({...row,name:company.get(row.user_id).ic_name}));
   }
   async function personalProfile(userId) {
