@@ -11,10 +11,13 @@ export function parseCourseLog(title,description){
  return match&&(courseNumber===1||courseNumber===4)?{player:match[1],courseNumber}:null;
 }
 const canonical=value=>normalizedName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+export const courseEventKey=(event,at)=>{const date=new Date(at);const stamp=Number.isNaN(date.getTime())?String(at):date.toISOString();return `${canonical(event.player)}|${event.courseNumber}|${stamp}`;};
+export const courseAccountId=player=>{const bracket=[...String(player).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1]||player;return config.courseAccounts?.[canonical(bracket)]||null;};
 const memberId=person=>person.user_id||person.id;
 const memberNames=person=>[person.ic_name,person.displayName,person.nickname,person.username,person.user?.username,person.user?.globalName].filter(Boolean).map(canonical);
 const hasPhrase=(value,phrase)=>` ${value} `.includes(` ${phrase} `);
 export function matchCourseEmployee(player,employees){
+ const fixed=courseAccountId(player);if(fixed)return fixed;
  const bracket=[...String(player).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1];
  if(!bracket)throw new Error('Wpis kursu nie zawiera nazwy w nawiasie kwadratowym.');
  const wanted=canonical(bracket),nick=canonical(String(player).split('[')[0]);
@@ -35,7 +38,14 @@ export async function ingestCourseLog(db,message,guildId){
  if(message.guildId!==guildId||message.channelId!==sourceChannel||!message.webhookId)return false;
  const events=(message.embeds||[]).map(embed=>parseCourseLog(embed.title,embed.description)).filter(Boolean);
  if(events.length!==1)return false;
- return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,message.webhookId,JSON.stringify(events[0])])).rows.length));
+  const timestamp=message.embeds[0]?.timestamp||Math.floor((message.createdTimestamp||Date.now())/60000)*60000;
+  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,status) VALUES($1,$2,$3,$4,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,message.webhookId,JSON.stringify(events[0]),courseEventKey(events[0],timestamp)])).rows.length));
+}
+export async function retryFailedCoursesSinceReset(db){
+ const reset=(await db.q("SELECT max(created_at) AS created_at FROM logs WHERE category='reset' AND status='success'")).rows[0]?.created_at;
+ if(!reset)return 0;
+ const retried=await db.q("UPDATE imported_courses SET status='pending',retry_count=retry_count+1 WHERE status='failed' AND retry_count=0 AND created_at >= $1 AND event->>'courseNumber'='4' RETURNING message_id",[reset]);
+ return retried.rowCount;
 }
 export async function processCourseLogs(db,svc){
  const pending=(await db.q("SELECT * FROM imported_courses WHERE status='pending' ORDER BY created_at,message_id LIMIT 25")).rows;
