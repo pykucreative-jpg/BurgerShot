@@ -36,6 +36,9 @@ CREATE TABLE IF NOT EXISTS imported_courses (
  message_id text PRIMARY KEY, webhook_id text NOT NULL, event jsonb NOT NULL,
  status text NOT NULL DEFAULT 'pending', created_at timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE imported_courses ADD COLUMN IF NOT EXISTS event_key text;
+ALTER TABLE imported_courses ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
+CREATE UNIQUE INDEX IF NOT EXISTS imported_courses_event_key ON imported_courses(event_key) WHERE event_key IS NOT NULL;
 CREATE TABLE IF NOT EXISTS course_progress (
  user_id text PRIMARY KEY, courses_completed integer NOT NULL DEFAULT 0,
  spins_available integer NOT NULL DEFAULT 0, spins_used integer NOT NULL DEFAULT 0,
