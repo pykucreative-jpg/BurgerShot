@@ -59,6 +59,7 @@ export function bot(db,client,svc,env){
   });
  }
  async function deliveries(){
+  return db.lock('discord-deliveries',async()=>{
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
     for(const l of logs) {
       try {
@@ -82,6 +83,7 @@ export function bot(db,client,svc,env){
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);}
     }
+  });
   }
 
  async function coursePanel(){
