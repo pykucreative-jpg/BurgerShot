@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey} from '../src/course-wheel.js';
+import {readFile} from 'node:fs/promises';
+import {PGlite} from '@electric-sql/pglite';
+import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey,ingestCourseLog} from '../src/course-wheel.js';
+import {sourceChannel} from '../src/webhook-logs.js';
 
 test('odczytuje dokładny log ukończenia kursu ze screena i dopasowuje nazwę w nawiasie',()=>{
  const event=parseCourseLog('BURGERSHOT Zakończenie Kursu','Gracz Buleczka72 [Markos Valentierra] zakończył Kurs #4 dla burgershot.');
@@ -17,5 +20,15 @@ test('odczytuje dokładny log ukończenia kursu ze screena i dopasowuje nazwę w
  ]),'457');
  assert.equal(parseCourseLog('BURGERSHOT Zakończenie Kursu','Gracz Buleczka72 [Markos Valentierra] zakończył Kurs #3 dla burgershot.'),null);
  assert.equal(parseCourseLog('BURGERSHOT Zakończenie Kursu','Nieprawidłowa wiadomość'),null);
+});
+
+test('zapisuje każdy odrębny log #4, także gdy BurgerShot wysyła go jako aplikacja',async t=>{
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}) )};
+ const message={guildId:'guild',channelId:sourceChannel,webhookId:null,applicationId:'burgershot-app',embeds:[{title:'BURGERSHOT Zakończenie Kursu',description:'Gracz Buleczka72 [Markos Valentierra] zakończył Kurs #4 dla burgershot.'}]};
+ assert.equal(await ingestCourseLog(db,{...message,id:'course-one',createdTimestamp:1000},'guild'),true);
+ assert.equal(await ingestCourseLog(db,{...message,id:'course-two',createdTimestamp:2000},'guild'),true);
+ assert.equal(await ingestCourseLog(db,{...message,id:'course-one',createdTimestamp:1000},'guild'),false);
+ assert.equal((await pg.query('SELECT count(*)::int AS count FROM imported_courses')).rows[0].count,2);
 });
 
