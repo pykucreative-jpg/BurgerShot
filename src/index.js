@@ -16,7 +16,12 @@ let initialized=false,working=false,stopping=false,lastMaintenance=0,lastCourseP
  const httpServer=web(db,svc,discord,env,()=>initialized&&client.isReady()).listen(env.port,'0.0.0.0',()=>console.log('Panel BurgerShot gotowy.'));
 const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=3000){lastMaintenance=Date.now();await processWebhookLogs(db,svc);await processCourseLogs(db,svc);await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}if(Date.now()-lastCoursePresence>=600000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
 async function shutdown(code=0){if(stopping)return;stopping=true;clearInterval(timer);httpServer.close();client.destroy();await db.pool.end();process.exit(code);}
-client.once(Events.ClientReady,async()=>{try{const reset=await svc.resetCoursesOnRelease();if(reset.ran)console.log(`Wyzerowano kursy dla ${reset.count} osób po aktualizacji zasad.`);const retried=await retryFailedCoursesSinceReset(db);if(retried)await processCourseLogs(db,svc);await discord.syncCommands();await discord.panel();await svc.refreshCoursePresence();lastCoursePresence=Date.now();initialized=true;console.log('BurgerShot gotowy — komendy zsynchronizowane.');}catch(e){console.error('Uruchomienie',e.code||e.name);await shutdown(1);}});
+client.once(Events.ClientReady,async()=>{try{const reset=await svc.resetCoursesOnRelease();if(reset.ran)console.log(`Wyzerowano kursy dla ${reset.count} osób po aktualizacji zasad.`);const retried=await retryFailedCoursesSinceReset(db);if(retried)await processCourseLogs(db,svc);
+ const optional=async(name,work)=>{try{await work();}catch(e){console.error(`Uruchomienie: ${name}`,e.code||e.name);}};
+ await optional('synchronizacja komend',()=>discord.syncCommands());
+ await discord.panel();
+ await optional('odświeżenie statusu',()=>svc.refreshCoursePresence());
+ lastCoursePresence=Date.now();initialized=true;console.log('BurgerShot gotowy.');}catch(e){console.error('Uruchomienie',e.code||e.name);await shutdown(1);}});
 client.on(Events.Error,e=>console.error('Discord',e.code||e.name));
 process.on('SIGTERM',()=>shutdown());process.on('SIGINT',()=>shutdown());
 await client.login(env.token).catch(async e=>{console.error('Logowanie',e.code||e.name);await shutdown(1);});
