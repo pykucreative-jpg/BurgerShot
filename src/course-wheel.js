@@ -44,6 +44,30 @@ export async function ingestCourseLog(db,message,guildId){
   const timestamp=message.embeds[0]?.timestamp||Math.floor((message.createdTimestamp||Date.now())/60000)*60000;
   return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,status) VALUES($1,$2,$3,$4,'pending') ON CONFLICT(message_id) DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0]),courseEventKey(events[0],timestamp)])).rows.length));
 }
+export async function recoverCourseLogsSince(db,client,guildId,since){
+ const startedAt=new Date(since),startedMs=startedAt.getTime();
+ if(Number.isNaN(startedMs))throw new Error('Nieprawidłowy czas odzyskania kursów.');
+ const marker=`course-recovery:${startedAt.toISOString()}`;
+ if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return 0;
+ const channel=await client.channels.fetch(sourceChannel);
+ if(!channel?.messages?.fetch)throw new Error('Kanał źródłowy kursów nie jest dostępny.');
+ let before,inserted=0;
+ for(let page=0;page<10;page++){
+  const batch=await channel.messages.fetch({limit:100,...(before?{before}:{})});
+  const messages=[...batch.values()];
+  if(!messages.length)break;
+  for(const message of messages){
+   if(message.createdTimestamp<startedMs)continue;
+   const event=(message.embeds||[]).map(embed=>parseCourseLog(embed.title,embed.description)).find(Boolean);
+   if(event?.courseNumber===4&&await ingestCourseLog(db,message,guildId))inserted++;
+  }
+  const oldest=messages.reduce((value,message)=>!value||message.createdTimestamp<value.createdTimestamp?message:value,null);
+  if(oldest.createdTimestamp<startedMs)break;
+  before=oldest.id;
+ }
+ await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
+ return inserted;
+}
 export async function retryFailedCoursesSinceReset(db){
  const reset=(await db.q("SELECT max(created_at) AS created_at FROM logs WHERE category='reset' AND status='success'")).rows[0]?.created_at;
  if(!reset)return 0;
