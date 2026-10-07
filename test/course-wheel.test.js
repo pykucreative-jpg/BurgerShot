@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
-import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey,ingestCourseLog} from '../src/course-wheel.js';
+import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey,ingestCourseLog,recoverCourseLogsSince} from '../src/course-wheel.js';
 import {sourceChannel} from '../src/webhook-logs.js';
 
 test('odczytuje dokładny log ukończenia kursu ze screena i dopasowuje nazwę w nawiasie',()=>{
@@ -30,5 +30,16 @@ test('zapisuje każdy odrębny log #4, także gdy BurgerShot wysyła go jako apl
  assert.equal(await ingestCourseLog(db,{...message,id:'course-two',createdTimestamp:2000},'guild'),true);
  assert.equal(await ingestCourseLog(db,{...message,id:'course-one',createdTimestamp:1000},'guild'),false);
  assert.equal((await pg.query('SELECT count(*)::int AS count FROM imported_courses')).rows[0].count,2);
+});
+
+test('odzyskuje wyłącznie Kurs #4 z historii od wskazanej godziny',async t=>{
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={q:(s,p)=>pg.query(s,p),transaction:fn=>pg.transaction(tx=>fn({query:(s,p)=>tx.query(s,p)}))};
+ const course=(id,time,number)=>({id,guildId:'guild',channelId:sourceChannel,webhookId:'hook',createdTimestamp:time,embeds:[{title:'BURGERSHOT Zakończenie Kursu',description:`Gracz A [Adam Kowalski] zakończył Kurs #${number} dla burgershot.`}]});
+ const messages=new Map([['new',course('new',2000,4)],['first',course('first',1500,1)],['old',course('old',500,4)]]);
+ const client={channels:{fetch:async()=>({messages:{fetch:async()=>messages}})}};
+ assert.equal(await recoverCourseLogsSince(db,client,'guild',new Date(1000)),1);
+ assert.equal((await pg.query('SELECT count(*)::int AS count FROM imported_courses')).rows[0].count,1);
+ assert.equal(await recoverCourseLogsSince(db,client,'guild',new Date(1000)),0);
 });
 
