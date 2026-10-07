@@ -41,8 +41,10 @@ export async function ingestCourseLog(db,message,guildId){
  if(message.guildId!==guildId||message.channelId!==sourceChannel||!sourceId)return false;
  const events=(message.embeds||[]).map(embed=>parseCourseLog(embed.title,embed.description)).filter(Boolean);
  if(events.length!==1)return false;
-  const timestamp=message.embeds[0]?.timestamp||Math.floor((message.createdTimestamp||Date.now())/60000)*60000;
-  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,status) VALUES($1,$2,$3,$4,'pending') ON CONFLICT(message_id) DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0]),courseEventKey(events[0],timestamp)])).rows.length));
+  const timestamp=message.embeds[0]?.timestamp||message.createdTimestamp||Date.now();
+  const occurredAt=new Date(timestamp);
+  const safeOccurredAt=Number.isNaN(occurredAt.getTime())?new Date(message.createdTimestamp||Date.now()):occurredAt;
+  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,occurred_at,status) VALUES($1,$2,$3,$4,$5,'pending') ON CONFLICT(message_id) DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0]),courseEventKey(events[0],safeOccurredAt),safeOccurredAt]) ).rows.length));
 }
 export async function recoverCourseLogsSince(db,client,guildId,since){
  const startedAt=new Date(since),startedMs=startedAt.getTime();
@@ -83,7 +85,7 @@ export async function processCourseLogs(db,svc){
    try{
     const targetId=await svc.courseMemberByName(item.event.player);
     if(item.event.courseNumber===1) await svc.markActiveCourse({targetId,messageId:item.message_id,playerName:item.event.player});
-    else await svc.recordCourse({targetId,messageId:item.message_id,playerName:item.event.player,courseNumber:item.event.courseNumber});
+    else await svc.recordCourse({targetId,messageId:item.message_id,playerName:item.event.player,courseNumber:item.event.courseNumber,occurredAt:item.occurred_at||item.created_at});
     await db.q("UPDATE imported_courses SET status='done' WHERE message_id=$1",[item.message_id]);
    }catch(err){
     if(item.event.courseNumber===1){await db.q("UPDATE imported_courses SET status='ignored' WHERE message_id=$1",[item.message_id]);return;}
