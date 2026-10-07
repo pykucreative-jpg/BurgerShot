@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS imported_courses (
 );
 ALTER TABLE imported_courses ADD COLUMN IF NOT EXISTS event_key text;
 ALTER TABLE imported_courses ADD COLUMN IF NOT EXISTS retry_count integer NOT NULL DEFAULT 0;
+ALTER TABLE imported_courses ADD COLUMN IF NOT EXISTS occurred_at timestamptz;
 -- Message ID is the deduplication key. Two real #4 completions may happen
 -- within the same two-minute window and both must be counted.
 DROP INDEX IF EXISTS imported_courses_event_key;
