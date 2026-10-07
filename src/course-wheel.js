@@ -35,11 +35,14 @@ export function matchCourseEmployee(player,employees){
  return memberId(matches[0].person);
 }
 export async function ingestCourseLog(db,message,guildId){
- if(message.guildId!==guildId||message.channelId!==sourceChannel||!message.webhookId)return false;
+ // BurgerShot may publish through either a webhook or an application bot.
+ // Both are trusted only on the configured source channel.
+ const sourceId=message.webhookId||message.applicationId||(message.author?.bot&&message.author?.id);
+ if(message.guildId!==guildId||message.channelId!==sourceChannel||!sourceId)return false;
  const events=(message.embeds||[]).map(embed=>parseCourseLog(embed.title,embed.description)).filter(Boolean);
  if(events.length!==1)return false;
   const timestamp=message.embeds[0]?.timestamp||Math.floor((message.createdTimestamp||Date.now())/60000)*60000;
-  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,status) VALUES($1,$2,$3,$4,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,message.webhookId,JSON.stringify(events[0]),courseEventKey(events[0],timestamp)])).rows.length));
+  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_courses(message_id,webhook_id,event,event_key,status) VALUES($1,$2,$3,$4,'pending') ON CONFLICT(message_id) DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0]),courseEventKey(events[0],timestamp)])).rows.length));
 }
 export async function retryFailedCoursesSinceReset(db){
  const reset=(await db.q("SELECT max(created_at) AS created_at FROM logs WHERE category='reset' AND status='success'")).rows[0]?.created_at;
