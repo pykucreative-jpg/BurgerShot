@@ -11,7 +11,7 @@ export function service(db, client, env) {
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   let courseMemberCache={at:0,members:new Map()};
-  const currentWeek=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('week');return [start.toUTC().toJSDate(),start.plus({days:7}).toUTC().toJSDate()];};
+  const currentWeek=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('week').minus({days:1});return [start.toUTC().toJSDate(),start.plus({days:7}).toUTC().toJSDate()];};
   async function companyMembers() {
     if(Date.now()-companyCache.at<60000)return companyCache.items;
     const g=await guild();
@@ -54,12 +54,12 @@ export function service(db, client, env) {
     [m.id,m.user.username,m.displayName,rank,highest(config.plus,ids),highest(config.minus,ids)]);
     return (await db.q('SELECT user_id,username,ic_name,rank,plus_count,minus_count,status,hired_by,hired_by_name,hired_at FROM employees WHERE user_id=$1',[m.id])).rows[0];
   }
-  async function recordCourse({targetId,messageId,playerName,courseNumber}) {
+  async function recordCourse({targetId,messageId,playerName,courseNumber,occurredAt=new Date()}) {
     return db.lock(`user:${targetId}`,async()=>{
       if(courseNumber!==4)throw new UserError('Zapisywany może być wyłącznie Kurs #4.');
       const m=await member(targetId);
       return db.transaction(async tx=>{
-        const imported=await tx.query("INSERT INTO course_events(message_id,user_id,player_name,course_number) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING message_id",[messageId,targetId,playerName,courseNumber]);
+        const imported=await tx.query("INSERT INTO course_events(message_id,user_id,player_name,course_number,created_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT DO NOTHING RETURNING message_id",[messageId,targetId,playerName,courseNumber,occurredAt]);
         if(!imported.rows.length)return {duplicate:true};
         const progress=(await tx.query(`INSERT INTO course_progress(user_id,courses_completed,spins_available,last_course_at)
           VALUES($1,1,0,now()) ON CONFLICT(user_id) DO UPDATE SET
@@ -118,7 +118,7 @@ export function service(db, client, env) {
     return {courses:progress.courses_completed,spins:progress.spins_available,staff,remaining:20-(progress.courses_completed%20)||20};
   }
   async function weeklyCourseInfo(){
-    const start=DateTime.now().setZone('Europe/Warsaw').startOf('week'),end=start.plus({days:7});
+    const start=DateTime.now().setZone('Europe/Warsaw').startOf('week').minus({days:1}),end=start.plus({days:7});
     const rows=(await db.q('SELECT created_at FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2',[start.toUTC().toJSDate(),end.toUTC().toJSDate()])).rows;
     const days=Array(7).fill(0);
     for(const row of rows){const day=DateTime.fromJSDate(new Date(row.created_at),{zone:'utc'}).setZone('Europe/Warsaw').weekday;if(day>=1&&day<=7)days[day-1]++;}
