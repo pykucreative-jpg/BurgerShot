@@ -76,7 +76,8 @@ export function bingo(db,client,svc,card){
    }else if(i.customId==='bingo:close')await close(i);
    else throw new UserError('Nieznana akcja Bingo.');
   }catch(err){
-   const message=err instanceof UserError?err.message:[50001,50013].includes(err.code)?'Bot nie może utworzyć kanału w kategorii Bingo. Nadaj mu tam: Wyświetlanie kanału oraz Zarządzanie kanałami.':'Nie udało się obsłużyć zgłoszenia Bingo. Sprawdź logi bota.';
+   console.error('Bingo ticket',err.code||err.name,err.message||'brak opisu');
+   const message=err instanceof UserError?err.message:[50001,50013].includes(err.code)?'Bot nie może utworzyć kanału w kategorii Bingo. Nadaj mu tam: Wyświetlanie kanału oraz Zarządzanie kanałami.':err.code==='42P01'?'Baza danych bota nie została jeszcze zaktualizowana. Poczekaj na ponowne uruchomienie usługi.':`Nie udało się obsłużyć zgłoszenia Bingo (kod ${err.code||'nieznany'}).`;
    if(i.deferred)await i.editReply(message).catch(()=>{});else await i.reply({flags:MessageFlags.Ephemeral,content:message}).catch(()=>{});
   }
   return true;
