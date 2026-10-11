@@ -11,6 +11,7 @@ import {config,labels} from './config.js';
 import {UserError,parseLeaveDate,formatDate} from './domain.js';
 export const makeClient=()=>new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent],allowedMentions:{parse:[]}});
 const brandAvatar='https://raw.githubusercontent.com/pykucreative-jpg/BurgerShot/main/public/discord-avatar.jpg';
+export const isImportantLog=log=>log.status==='failed';
 export function card(result){const e=new EmbedBuilder().setColor(result.color||0xFF3B30).setAuthor({name:'BURGER SHOT • STAFF OFFICE'}).setTitle(result.title||'🍔 BurgerShot').setThumbnail(actionThumbnail(result.art)||brandAvatar).setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
 export function commands(hidden=false){
  const base=(name)=>new SlashCommandBuilder().setName(name).setDescription(labels[name]).setDMPermission(false).addUserOption(o=>o.setName('osoba').setDescription('Pracownik').setRequired(true));
@@ -65,6 +66,7 @@ export function bot(db,client,svc,env){
     const logs=(await db.q("SELECT * FROM logs WHERE delivered=false AND status!='pending' ORDER BY id LIMIT 25")).rows;
     for(const l of logs) {
       try {
+        if(!isImportantLog(l)){await db.q('UPDATE logs SET delivered=true WHERE id=$1',[l.id]);continue;}
         const ch=await client.channels.fetch(config.logs);
         const result=l.details;
          const subject=l.target_id?`👤 <@${l.target_id}> · ${escapeMarkdown(l.target_name||'')}`:'👥 Wszyscy pracownicy';
@@ -72,7 +74,7 @@ export function bot(db,client,svc,env){
          const outcome=l.status==='success'?'✅ Wykonano':l.status==='noop'?'ℹ️ Bez zmian':`⚠️ ${result.error||'Nie ukończono'}`;
          const actor=l.actor_name?.startsWith('Automatycznie')?'🤖 Automatycznie':`👤 <@${l.actor_id}>`;
          const description=[subject,l.reason&&`💬 ${escapeMarkdown(l.reason)}`,detail&&`↳ ${escapeMarkdown(detail)}`,`${outcome} · ${actor} · ${formatDate(l.created_at)}`].filter(Boolean).join('\n');
-         await ch.send({embeds:[card({title:labels[l.category]||'📋 Historia',description,art:result.art})],files:actionFiles(result.art)});
+         await ch.send({content:`<@${config.errorAdmin}>`,embeds:[card({title:labels[l.category]||'📋 Historia',description,art:result.art})],files:actionFiles(result.art),allowedMentions:{users:[config.errorAdmin],parse:[]}});
         await db.q('UPDATE logs SET delivered=true WHERE id=$1',[l.id]);
       } catch(err) { console.error('Nie wysłano logu',l.id,err.code||err.name); break; }
     }
@@ -81,7 +83,10 @@ export function bot(db,client,svc,env){
       try {
         const channel=await client.channels.fetch(n.channel_id);
         const payload=n.reward_cutoff?await rewardMessage(n.reward_cutoff,n.reward_page,n.title):{embeds:[card({title:n.title,description:n.body,art:n.art})],files:actionFiles(n.art),components:[]};
-        await channel.send({...payload,content:[n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null].filter(Boolean).join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users:n.user_id?[n.user_id]:[],parse:[]}});
+        const isErrorChannel=n.channel_id===config.logs&&/błąd|nie wykonano|nie zapisano/i.test(n.title||'');
+        const mentions=[...new Set([n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null,isErrorChannel?`<@${config.errorAdmin}>`:null].filter(Boolean))];
+        const users=[...new Set([...(n.user_id?[n.user_id]:[]),...(isErrorChannel?[config.errorAdmin]:[])])];
+        await channel.send({...payload,content:mentions.join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users,parse:[]}});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);}
     }
