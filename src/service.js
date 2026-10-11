@@ -11,7 +11,7 @@ export function service(db, client, env) {
   const guild = () => client.guilds.fetch(env.guildId);
   let companyCache={at:0,items:[]};
   let courseMemberCache={at:0,members:new Map()};
-  const currentWeek=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('week').minus({days:1});return [start.toUTC().toJSDate(),start.plus({days:7}).toUTC().toJSDate()];};
+  const currentWeek=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('week');return [start.toUTC().toJSDate(),start.plus({days:7}).toUTC().toJSDate()];};
   async function companyMembers() {
     if(Date.now()-companyCache.at<60000)return companyCache.items;
     const g=await guild();
@@ -118,7 +118,7 @@ export function service(db, client, env) {
     return {courses:progress.courses_completed,spins:progress.spins_available,staff,remaining:20-(progress.courses_completed%20)||20};
   }
   async function weeklyCourseInfo(){
-    const start=DateTime.now().setZone('Europe/Warsaw').startOf('week').minus({days:1}),end=start.plus({days:7});
+    const start=DateTime.now().setZone('Europe/Warsaw').startOf('week'),end=start.plus({days:7});
     const rows=(await db.q('SELECT created_at FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2',[start.toUTC().toJSDate(),end.toUTC().toJSDate()])).rows;
     const days=Array(7).fill(0);
     for(const row of rows){const day=DateTime.fromJSDate(new Date(row.created_at),{zone:'utc'}).setZone('Europe/Warsaw').weekday;if(day>=1&&day<=7)days[day-1]++;}
