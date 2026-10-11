@@ -71,8 +71,8 @@ export function bingo(db,client,svc,card){
   const fileUrl=archiveMessage.attachments.first()?.url;
   if(fileUrl)await archiveMessage.edit({embeds:[card({title:'🎱 ARCHIWUM TICKETU BINGO',description:`${description}\n🔗 [Otwórz wpis archiwum](${archiveMessage.url})\n📂 [Otwórz kopię wiadomości](${fileUrl})`})]});
   await db.q("UPDATE bingo_tickets SET status='closed',closed_at=now(),closed_by=$2,archive_channel_id=$3,archive_message_id=$4,archive_url=$5 WHERE channel_id=$1",[i.channelId,i.user.id,archive.id,archiveMessage.id,fileUrl||archiveMessage.url]);
-  await i.channel.delete(`Ticket Bingo zamknięty przez ${i.user.id}`);
   await i.editReply(`Ticket zamknięty i zarchiwizowany: ${archiveMessage.url}`);
+  await i.channel.delete(`Ticket Bingo zamknięty przez ${i.user.id}`);
  }
  async function reportFailure(i,err){
   const channel=await client.channels.fetch(config.logs);
