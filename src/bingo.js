@@ -66,6 +66,11 @@ export function bingo(db,client,svc,card){
   await i.channel.delete(`Ticket Bingo zamknięty przez ${i.user.id}`);
   await i.editReply(`Ticket zamknięty i zarchiwizowany: ${archiveMessage.url}`);
  }
+ async function reportFailure(i,err){
+  const channel=await client.channels.fetch(config.logs);
+  const code=String(err.code||err.name||'nieznany').slice(0,80),detail=String(err.message||'Brak dodatkowego opisu.').slice(0,1500);
+  await channel.send({embeds:[card({title:'⚠️ BŁĄD TICKETU BINGO',description:`👤 **Osoba:** <@${i.user.id}>\n📍 **Kanał panelu:** <#${i.channelId}>\n🔢 **Kod:** ${code}\n💬 **Opis:** ${detail}`})],allowedMentions:{users:[i.user.id],parse:[]}});
+ }
  async function handle(i){
   if(!i.customId?.startsWith('bingo:'))return false;
   try{
@@ -77,6 +82,7 @@ export function bingo(db,client,svc,card){
    else throw new UserError('Nieznana akcja Bingo.');
   }catch(err){
    console.error('Bingo ticket',err.code||err.name,err.message||'brak opisu');
+   await reportFailure(i,err).catch(logError=>console.error('Bingo log błędu',logError.code||logError.name));
    const message=err instanceof UserError?err.message:[50001,50013].includes(err.code)?'Bot nie może utworzyć kanału w kategorii Bingo. Nadaj mu tam: Wyświetlanie kanału oraz Zarządzanie kanałami.':err.code==='42P01'?'Baza danych bota nie została jeszcze zaktualizowana. Poczekaj na ponowne uruchomienie usługi.':`Nie udało się obsłużyć zgłoszenia Bingo (kod ${err.code||'nieznany'}).`;
    if(i.deferred)await i.editReply(message).catch(()=>{});else await i.reply({flags:MessageFlags.Ephemeral,content:message}).catch(()=>{});
   }
