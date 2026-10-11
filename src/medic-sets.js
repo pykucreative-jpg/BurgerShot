@@ -15,9 +15,15 @@ export function medicSets(db,client,svc,card){
  }
  const panelPayload=async()=>{
   const all=await rows();
-  const lines=all.slice(0,80).map((medic,index)=>`**${index+1}.** ${medic.full_name} — **${medic.issued} / 5** dzisiaj`);
+  const issued=all.reduce((total,medic)=>total+Number(medic.issued),0);
+  const atLimit=all.filter(medic=>Number(medic.issued)>=5).length;
+  const lines=all.slice(0,80).map((medic,index)=>{
+   const full=Number(medic.issued)>=5;
+   return `**${String(index+1).padStart(2,'0')}.** ${full?'🔴':'🟢'} **${medic.full_name}**\n└ Zestawy dzisiaj: **${medic.issued} / 5**${full?' · limit wykorzystany':''}`;
+  });
   if(all.length>80)lines.push(`… oraz ${all.length-80} kolejnych osób.`);
-  return {embeds:[card({title:'🍔 BURGERSHOT • LISTA MEDYKÓW',description:lines.length?`━━━━━━━━━━━━━━━━━━━━\n\n${lines.join('\n')}\n\n━━━━━━━━━━━━━━━━━━━━\nLimit zestawów odnawia się codziennie o północy.`:'Brak osób na liście. Zarząd może dodać pierwszą osobę komendą `/lista`.'})]};
+  const summary=`👥 **Medyków:** ${all.length}  •  🍟 **Wydano dziś:** ${issued}\n🟢 **Dostępny limit:** ${all.length-atLimit}  •  🔴 **Wykorzystany limit:** ${atLimit}`;
+  return {embeds:[card({title:'🍔 BURGERSHOT • LISTA MEDYKÓW',description:lines.length?`━━━━━━━━━━━━━━━━━━━━\n${summary}\n━━━━━━━━━━━━━━━━━━━━\n\n${lines.join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━\nLimit zestawów odnawia się codziennie o północy.`:'Brak osób na liście. Zarząd może dodać pierwszą osobę komendą `/lista`.'})]};
  };
  async function panel(){
   const channel=await client.channels.fetch(config.medicListChannel),payload=await panelPayload();
@@ -28,7 +34,7 @@ export function medicSets(db,client,svc,card){
    await db.q("INSERT INTO bot_panels(name,channel_id,message_id) VALUES('medic-list',$1,$2) ON CONFLICT(name) DO UPDATE SET channel_id=$1,message_id=$2",[channel.id,message.id]);
   });
  }
- async function manage(actorId,action,name){
+ async function manage(actorId,action,name,newName){
   await svc.authorize(actorId);
   if(action==='pokaz'){await panel();return {message:'Lista medyków została odświeżona.'};}
   const fullName=cleanName(name);
@@ -42,7 +48,16 @@ export function medicSets(db,client,svc,card){
    if(!removed.rows.length)throw new UserError('Nie znaleziono tej osoby na liście medyków.');
    await panel();return {message:`Usunięto z listy: **${fullName}**.`};
   }
-  throw new UserError('Wybierz: dodaj, usuń albo pokaż.');
+  if(action==='edytuj'){
+   const replacement=cleanName(newName);
+   if(replacement===fullName)throw new UserError('Podaj inne imię i nazwisko.');
+   const exists=(await db.q('SELECT id FROM medics WHERE full_name=$1',[replacement])).rows[0];
+   if(exists)throw new UserError('Ta osoba jest już na liście medyków.');
+   const changed=await db.q('UPDATE medics SET full_name=$2 WHERE full_name=$1 RETURNING id',[fullName,replacement]);
+   if(!changed.rows.length)throw new UserError('Nie znaleziono tej osoby na liście medyków.');
+   await panel();return {message:`Zmieniono osobę: **${fullName}** → **${replacement}**.`};
+  }
+  throw new UserError('Wybierz: dodaj, edytuj, usuń albo pokaż.');
  }
  async function issue(actorId,name,quantity){
   const member=await svc.member(actorId);
