@@ -5,13 +5,21 @@ import {UserError,text} from './domain.js';
 const dailyWindow=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('day');return [start.toUTC().toJSDate(),start.plus({days:1}).toUTC().toJSDate()];};
 const cleanName=value=>text(value,80).replace(/\s+/g,' ').trim();
 export const setRemaining=issued=>Math.max(0,5-Number(issued||0));
+const initialMedics=['Alejandro Restrepo','Charlotte Lyons','Cioppini Bartieu','Damon Alfonso','George Hyattmore','Gorgio Wilson','Haruto Takanama','Ivy Mendez','Jack Kimono','Jessica Valentino','Kevin Maverick','Kim Frost','Leon Vidal','Lucas Valentino','Madison Black','Madison Hyattmore','Martino Skurwisinio','Michael Frost','Owen Evans','Paulo Martini','Rosalie Vitalyi','Santiago Mendez','Shyshko Yad','Theodor Rossi','Tony Kimono','Vivienne Castillo'];
 
 export function medicSets(db,client,svc,card){
+ async function importInitialMedics(){
+  await db.lock('medic-list-import-2026-10-11',()=>db.transaction(async tx=>{
+   const marker=await tx.query("INSERT INTO bot_settings(key,value) VALUES('medic_list_import_2026_10_11','done') ON CONFLICT(key) DO NOTHING RETURNING key");
+   if(!marker.rows.length)return;
+   for(const fullName of initialMedics)await tx.query('INSERT INTO medics(full_name) VALUES($1) ON CONFLICT(full_name) DO NOTHING',[fullName]);
+  }));
+ }
  async function rows(query=''){
   const [start,end]=dailyWindow();
   return (await db.q(`SELECT m.id,m.full_name,COALESCE(SUM(i.quantity),0)::int AS issued
    FROM medics m LEFT JOIN medic_set_issues i ON i.medic_id=m.id AND i.issued_at >= $1 AND i.issued_at < $2
-   WHERE lower(m.full_name) LIKE lower($3) GROUP BY m.id,m.full_name ORDER BY m.full_name`,[start,end,`%${query.trim()}%`])).rows;
+   WHERE lower(m.full_name) LIKE lower($3) GROUP BY m.id,m.full_name ORDER BY lower(m.full_name),m.full_name`,[start,end,`%${query.trim()}%`])).rows;
  }
  const panelPayload=async()=>{
   const all=await rows();
@@ -26,6 +34,7 @@ export function medicSets(db,client,svc,card){
   return {embeds:[card({title:'🍔 BURGERSHOT • LISTA MEDYKÓW',description:lines.length?`${summary}\n\n${lines.join('\n')}\n\n🟢 dostępny limit  ·  🔴 limit 5 / 5\nLimit odnawia się codziennie o północy.`:'Brak osób na liście. Zarząd może dodać pierwszą osobę komendą `/lista`.'})]};
  };
  async function panel(){
+  await importInitialMedics();
   const channel=await client.channels.fetch(config.medicListChannel),payload=await panelPayload();
   await db.lock('medic-list-panel',async()=>{
    const saved=(await db.q("SELECT message_id,channel_id FROM bot_panels WHERE name='medic-list' ")).rows[0];
