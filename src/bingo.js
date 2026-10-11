@@ -77,7 +77,7 @@ export function bingo(db,client,svc,card){
  async function reportFailure(i,err){
   const channel=await client.channels.fetch(config.logs);
   const code=String(err.code||err.name||'nieznany').slice(0,80),detail=String(err.message||'Brak dodatkowego opisu.').slice(0,1500);
-  await channel.send({embeds:[card({title:'⚠️ BŁĄD TICKETU BINGO',description:`👤 **Osoba:** <@${i.user.id}>\n📍 **Kanał panelu:** <#${i.channelId}>\n🔢 **Kod:** ${code}\n💬 **Opis:** ${detail}`})],allowedMentions:{parse:[]}});
+  await channel.send({content:`<@${config.errorAdmin}>`,embeds:[card({title:'⚠️ BŁĄD TICKETU BINGO',description:`👤 **Osoba:** <@${i.user.id}>\n📍 **Kanał panelu:** <#${i.channelId}>\n🔢 **Kod:** ${code}\n💬 **Opis:** ${detail}`})],allowedMentions:{users:[config.errorAdmin],parse:[]}});
  }
  async function handle(i){
   if(!i.customId?.startsWith('bingo:'))return false;
