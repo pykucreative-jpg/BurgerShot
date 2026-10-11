@@ -19,11 +19,11 @@ export function medicSets(db,client,svc,card){
   const atLimit=all.filter(medic=>Number(medic.issued)>=5).length;
   const lines=all.slice(0,80).map((medic,index)=>{
    const full=Number(medic.issued)>=5;
-   return `**${String(index+1).padStart(2,'0')}.** ${full?'🔴':'🟢'} **${medic.full_name}**\n└ Zestawy dzisiaj: **${medic.issued} / 5**${full?' · limit wykorzystany':''}`;
+   return `${full?'🔴':'🟢'} **${String(index+1).padStart(2,'0')}. ${medic.full_name}**  ·  \`${medic.issued} / 5\``;
   });
   if(all.length>80)lines.push(`… oraz ${all.length-80} kolejnych osób.`);
-  const summary=`👥 **Medyków:** ${all.length}  •  🍟 **Wydano dziś:** ${issued}\n🟢 **Dostępny limit:** ${all.length-atLimit}  •  🔴 **Wykorzystany limit:** ${atLimit}`;
-  return {embeds:[card({title:'🍔 BURGERSHOT • LISTA MEDYKÓW',description:lines.length?`━━━━━━━━━━━━━━━━━━━━\n${summary}\n━━━━━━━━━━━━━━━━━━━━\n\n${lines.join('\n\n')}\n\n━━━━━━━━━━━━━━━━━━━━\nLimit zestawów odnawia się codziennie o północy.`:'Brak osób na liście. Zarząd może dodać pierwszą osobę komendą `/lista`.'})]};
+  const summary=`👥 **${all.length} medyków**  ·  🍟 **${issued} zestawów dzisiaj**  ·  🔴 **${atLimit} limitów wykorzystanych**`;
+  return {embeds:[card({title:'🍔 BURGERSHOT • LISTA MEDYKÓW',description:lines.length?`${summary}\n\n${lines.join('\n')}\n\n🟢 dostępny limit  ·  🔴 limit 5 / 5\nLimit odnawia się codziennie o północy.`:'Brak osób na liście. Zarząd może dodać pierwszą osobę komendą `/lista`.'})]};
  };
  async function panel(){
   const channel=await client.channels.fetch(config.medicListChannel),payload=await panelPayload();
