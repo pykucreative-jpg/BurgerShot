@@ -63,6 +63,13 @@ CREATE INDEX IF NOT EXISTS active_course_members_expires_at ON active_course_mem
 
 CREATE TABLE IF NOT EXISTS bot_panels(name text PRIMARY KEY,channel_id text NOT NULL,message_id text NOT NULL);
 
+CREATE TABLE IF NOT EXISTS bingo_tickets (
+ id bigserial PRIMARY KEY, user_id text NOT NULL, channel_id text NOT NULL UNIQUE,
+ status text NOT NULL DEFAULT 'open', opened_at timestamptz NOT NULL DEFAULT now(),
+ closed_at timestamptz, closed_by text
+);
+CREATE UNIQUE INDEX IF NOT EXISTS one_open_bingo_ticket ON bingo_tickets(user_id) WHERE status='open';
+
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
