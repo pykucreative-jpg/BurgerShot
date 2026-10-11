@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS bingo_tickets (
  closed_at timestamptz, closed_by text
 );
 CREATE UNIQUE INDEX IF NOT EXISTS one_open_bingo_ticket ON bingo_tickets(user_id) WHERE status='open';
+ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_channel_id text;
+ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_message_id text;
+ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_url text;
 
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
