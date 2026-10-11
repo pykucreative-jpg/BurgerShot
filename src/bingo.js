@@ -26,8 +26,9 @@ export function bingo(db,client,svc,card){
     catch{await db.q("UPDATE bingo_tickets SET status='closed',closed_at=now() WHERE user_id=$1 AND status='open'",[i.user.id]);}
    }
    const guild=await svc.guild();
-   const channel=await guild.channels.create({name:ticketName(member.displayName),type:ChannelType.GuildText,parent:config.bingoCategory,permissionOverwrites:[
+   const channel=await guild.channels.create({name:ticketName(member.displayName),topic:`BurgerShot Bingo · zgłoszenie ${i.user.id}`,type:ChannelType.GuildText,parent:config.bingoCategory,permissionOverwrites:[
     {id:guild.roles.everyone.id,deny:[PermissionFlagsBits.ViewChannel]},
+    {id:client.user.id,allow:access},
     {id:i.user.id,allow:access},
     {id:config.staff,allow:access}
    ]});
