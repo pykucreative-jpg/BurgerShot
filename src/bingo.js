@@ -31,7 +31,7 @@ export function bingo(db,client,svc,card){
     {id:i.user.id,allow:access},
     {id:config.staff,allow:access}
    ]});
-   await channel.send({embeds:[card({title:'🎱 ZGŁOSZENIE BINGO',description:`👤 **Pracownik:** <@${i.user.id}>\n\nWyślij klip lub screen z wykonanym zadaniem. W wiadomości podaj **numer zadania Bingo**.\n\nZgłoszenie sprawdzi Zarząd. Ticket może zamknąć wyłącznie Zarząd.`})],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('bingo:close').setLabel('🔒 Zamknij ticket').setStyle(ButtonStyle.Danger))],allowedMentions:{users:[i.user.id],parse:[]}});
+   await channel.send({embeds:[card({title:'🎱 ZGŁOSZENIE BINGO',description:`👤 **Pracownik:** <@${i.user.id}>\n\nWyślij klip lub screen z wykonanym zadaniem. W wiadomości podaj **numer zadania Bingo**.\n\nZgłoszenie sprawdzi Zarząd. Ticket może zamknąć wyłącznie Zarząd.`})],components:[new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('bingo:close').setLabel('🔒 Zarząd: zamknij').setStyle(ButtonStyle.Danger))],allowedMentions:{users:[i.user.id],parse:[]}});
    await db.q("INSERT INTO bingo_tickets(user_id,channel_id,status) VALUES($1,$2,'open')",[i.user.id,channel.id]);
    return {existing:false,channel};
   });
