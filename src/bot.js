@@ -4,6 +4,7 @@ import {previewRewards,rewardReport,payReward} from './rewards.js';
 import {badges} from './badges.js';
 import {tablet} from './tablet.js';
 import {bulkDismiss} from './bulk-dismiss.js';
+import {bingo} from './bingo.js';
 import {actionFiles,actionThumbnail} from './action-art.js';
 import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,MessageFlags,escapeMarkdown,ActionRowBuilder,ButtonBuilder,ButtonStyle,StringSelectMenuBuilder} from 'discord.js';
 import {config,labels} from './config.js';
@@ -38,6 +39,7 @@ export function bot(db,client,svc,env){
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));const {art,...message}=payload;await channel.send({...message,files:actionFiles(art),allowedMentions:{parse:[]}});};
  const badgeGenerator=badges(db,client,svc,card);
  const staffTablet=tablet(db,svc,card,publish,destination);
+ const bingoTickets=bingo(db,client,svc,card);
  const rewardMessage=async(cutoff,page,title)=>{
    const report=await rewardReport(db,cutoff,page);
    const components=report.entries.length?[new ActionRowBuilder().addComponents(
@@ -114,6 +116,7 @@ export function bot(db,client,svc,env){
    return;
   }
   if(i.customId==='badges:generate'){if(!i.inGuild()||i.guildId!==env.guildId)return;await badgeGenerator.handle(i);return;}
+  if(i.customId?.startsWith('bingo:')){if(!i.inGuild()||i.guildId!==env.guildId)return;await bingoTickets.handle(i);return;}
   if(i.customId?.startsWith('course:')){
    if(!i.inGuild()||i.guildId!==env.guildId)return;
    try{
@@ -183,6 +186,7 @@ export function bot(db,client,svc,env){
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
+  await optionalPanel('Bingo',()=>bingoTickets.panel());
  }};
 }
 
