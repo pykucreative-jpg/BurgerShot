@@ -73,6 +73,16 @@ ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_channel_id text;
 ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_message_id text;
 ALTER TABLE bingo_tickets ADD COLUMN IF NOT EXISTS archive_url text;
 
+CREATE TABLE IF NOT EXISTS medics (
+ id bigserial PRIMARY KEY, full_name text NOT NULL UNIQUE, created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS medic_set_issues (
+ id bigserial PRIMARY KEY, medic_id bigint NOT NULL REFERENCES medics(id) ON DELETE CASCADE,
+ issued_by text NOT NULL, issued_by_name text NOT NULL, quantity integer NOT NULL CHECK(quantity BETWEEN 1 AND 5),
+ issued_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS medic_set_issues_daily ON medic_set_issues(medic_id,issued_at);
+
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
