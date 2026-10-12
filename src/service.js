@@ -185,6 +185,23 @@ export function service(db, client, env) {
     const remove=old.filter(id=>id!==selected);
     if (remove.length) {await m.roles.remove(remove,reason);steps.push('Zdjęto poprzednie rangi z tej kategorii');}
   }
+  async function recordDelivery(targetId,requestId) {
+    return db.lock(`delivery:${targetId}`,async()=>{
+      const m=await member(targetId);
+      if(!m.roles.cache.has(config.employee))throw new UserError('Osoba pomagająca musi mieć rangę Firma DC.');
+      const duplicate=(await db.q('SELECT 1 FROM delivery_events WHERE request_id=$1 AND user_id=$2',[requestId,targetId])).rows[0];
+      const current=(await db.q('SELECT deliveries FROM delivery_progress WHERE user_id=$1',[targetId])).rows[0]?.deliveries||0;
+      if(duplicate)return {userId:targetId,count:Number(current),bonus:false,duplicate:true};
+      const count=Number(current)>=5?1:Number(current)+1;
+      await replaceRoles(m,config.deliveryProgress,config.deliveryProgress[count-1],'BurgerShot: pomoc przy dostawie');
+      await db.transaction(async tx=>{
+        await tx.query('INSERT INTO delivery_events(request_id,user_id) VALUES($1,$2)',[requestId,targetId]);
+        await tx.query(`INSERT INTO delivery_progress(user_id,deliveries,updated_at) VALUES($1,$2,now())
+          ON CONFLICT(user_id) DO UPDATE SET deliveries=$2,updated_at=now()`,[targetId,count]);
+      });
+      return {userId:targetId,count,bonus:count===5,duplicate:false};
+    });
+  }
   async function audit({ category, actor, target, reason='', channelId, requestId }, fn) {
     if (requestId) {
       const existing=(await db.q('SELECT id FROM logs WHERE request_id=$1',[requestId])).rows[0];
@@ -363,6 +380,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,courseRanking,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,courseRanking,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook,recordDelivery};
 }
 
