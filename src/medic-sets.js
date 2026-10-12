@@ -84,7 +84,7 @@ export function medicSets(db,client,svc,card){
   }));
   await panel();return result;
  }
- async function delivery(actorId,driverId,helperIds,name){
+ async function delivery(actorId,driverId,helperIds,name,requestId){
   await svc.authorize(actorId);
   const uniqueHelpers=[...new Set(helperIds.filter(Boolean))];
   const [driver,...helpers]=await Promise.all([svc.member(driverId),...uniqueHelpers.map(id=>svc.member(id))]);
@@ -92,7 +92,8 @@ export function medicSets(db,client,svc,card){
   if(helpers.some(helper=>!helper.roles.cache.has(config.employee)))throw new UserError('Każda osoba pomagająca musi mieć rangę Firma DC.');
   const medic=(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
   if(!medic)throw new UserError('Wybierz osobę z listy medyków.');
-  return {driver,helpers,medic};
+  const progress=await Promise.all(helpers.map(helper=>svc.recordDelivery(helper.id,requestId)));
+  return {driver,helpers,medic,progress};
  }
  async function autocomplete(i){
   const query=i.options.getFocused().trim();
