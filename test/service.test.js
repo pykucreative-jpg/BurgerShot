@@ -10,7 +10,7 @@ async function setup(t){
  const pg=new PGlite();await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));t.after(()=>pg.close());
  const q=async(sql,params=[])=>{const r=await pg.query(sql,params);return {...r,rowCount:r.affectedRows ?? r.rows.length};};
  const db={q,lock:async(key,fn)=>fn(),transaction:async fn=>pg.transaction(tx=>fn({query:async(sql,params=[])=>{const r=await tx.query(sql,params);return {...r,rowCount:r.affectedRows??r.rows.length};}}))};
- const roles=new Collection([...config.ranks.map(r=>r.id),config.employee,config.staff,config.leave,...config.plus,...config.minus].map(id=>[id,{id,editable:true,managed:false}]));
+ const roles=new Collection([...config.ranks.map(r=>r.id),config.employee,config.staff,config.leave,...config.plus,...config.minus,...config.deliveryProgress].map(id=>[id,{id,editable:true,managed:false}]));
  const members=new Map();
  function member(id,ids){const cache=new Collection(ids.map(x=>[x,roles.get(x)]));const m={id,user:{id,username:id===actorId?'Anna':'Jan',bot:false},displayName:id===actorId?'Anna Nowak':'Jan Kowalski',nickname:null,manageable:true,kickable:true,guild:{id:'333333333333333333'},roles:{cache,add:async id=>{for(const x of [].concat(id))cache.set(x,roles.get(x));},remove:async ids=>{for(const x of [].concat(ids))cache.delete(x);}},setNickname:async n=>{m.nickname=n;m.displayName=n||m.user.username;},kick:async()=>{members.delete(id);}};members.set(id,m);return m;}
  const actor=member(actorId,[config.staff]);const target=member(targetId,[config.ranks[0].id,config.employee]);
@@ -26,6 +26,11 @@ test('pełny cykl plusów usuwa stare rangi i zachowuje 5 logów',async t=>{
  const logs=(await db.q("SELECT * FROM logs WHERE category='plus' AND status='success' ORDER BY id")).rows;
  assert.equal(logs.length,5);assert.equal(logs[4].details.after,0);
  assert.equal((await db.q('SELECT plus_count FROM employees')).rows[0].plus_count,0);
+});
+test('pięć dostaw zmienia rangi po kolei i uruchamia premię plusa',async t=>{
+ const {svc,target}=await setup(t);
+ for(let count=1;count<=5;count++){const result=await svc.recordDelivery(target.id,`dostawa-${count}`);assert.equal(result.count,count);assert.equal(result.bonus,count===5);assert.ok(target.roles.cache.has(config.deliveryProgress[count-1]));assert.equal(config.deliveryProgress.filter(id=>target.roles.cache.has(id)).length,1);}
+ const next=await svc.recordDelivery(target.id,'dostawa-6');assert.equal(next.count,1);assert.equal(next.bonus,false);assert.ok(target.roles.cache.has(config.deliveryProgress[0]));
 });
 test('dwadzieścia kursów odblokowuje jedno koło dla Firma DC i Zarządu',async t=>{
  const {svc,db}=await setup(t);
