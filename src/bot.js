@@ -184,9 +184,15 @@ export function bot(db,client,svc,env){
    if(i.commandName==='dostawy'){
     if(i.channelId!==config.deliveriesChannel)throw new UserError('Komendy /dostawy używaj wyłącznie na kanale dostaw medycznych.');
     const helperIds=['pomogl','pomocnik_2','pomocnik_3','pomocnik_4'].map(option=>i.options.getUser(option)?.id);
-    const result=await medicSetManager.delivery(i.user.id,i.options.getUser('dostarczyl',true).id,helperIds,i.options.getString('odebral',true));
+    const result=await medicSetManager.delivery(i.user.id,i.options.getUser('dostarczyl',true).id,helperIds,i.options.getString('odebral',true),i.id);
+    const bonuses=[];
+    for(const progress of result.progress.filter(entry=>entry.bonus&&!entry.duplicate)){
+      bonuses.push({targetId:progress.userId,result:await svc.run({kind:'plus',actorId:result.driver.id,targetId:progress.userId,reason:'Automatyczny plus za 5 dostaw.',channelId:config.deliveriesChannel,requestId:`delivery-plus:${i.id}:${progress.userId}`})});
+    }
     const date=DateTime.now().setZone('Europe/Warsaw').toFormat('dd.MM.yyyy, HH:mm');
-    await i.reply({embeds:[card({title:'🍔 DOSTAWA MEDYCZNA',description:`Kto dostarczył: <@${result.driver.id}>\nKto pomógł: ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}\nKto odebrał: **${result.medic.full_name}**\nData: ${date}`})],allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)]}});return;
+    await i.reply({embeds:[card({title:'🍔 DOSTAWA MEDYCZNA',description:`Kto dostarczył: <@${result.driver.id}>\nKto pomógł: ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}\nKto odebrał: **${result.medic.full_name}**\nData: ${date}`})],allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)]}});
+    for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🚚 Plus za 5 dostaw!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw**. 🍔`})]},config.deliveriesChannel).catch(err=>console.error('Nie wysłano plusa za dostawy',err.code||err.name));
+    return;
    }
    if(i.commandName==='reset'){
     const result=await svc.resetCourses(i.user.id);
