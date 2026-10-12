@@ -83,6 +83,15 @@ CREATE TABLE IF NOT EXISTS medic_set_issues (
 );
 CREATE INDEX IF NOT EXISTS medic_set_issues_daily ON medic_set_issues(medic_id,issued_at);
 
+CREATE TABLE IF NOT EXISTS delivery_progress (
+ user_id text PRIMARY KEY, deliveries integer NOT NULL DEFAULT 0 CHECK(deliveries BETWEEN 0 AND 5),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS delivery_events (
+ request_id text NOT NULL, user_id text NOT NULL, created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY(request_id,user_id)
+);
+
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
