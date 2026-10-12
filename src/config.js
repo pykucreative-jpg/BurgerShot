@@ -5,6 +5,7 @@ export const config={
  courseAccounts:{'ashe moore':'920043294711504976'},
  ranks:[{id:'1524197367325134878',name:'Rekrut'},{id:'1292911416264622202',name:'Nowicjusz'},{id:'1519069368602988817',name:'Pracownik'},{id:'1292911416285728789',name:'Starszy pracownik'},{id:'1292911416285728790',name:'Specjalista'},{id:'1519067835769294858',name:'Doświadczony Specjalista'},{id:'1292911416285728792',name:'Kierownik zmiany'},{id:'1292911416306569307',name:'Kierownik'},{id:'1391129116199358545',name:'Menadżer'},{id:'1292911416323342398',name:'Zastępca szefa'},{id:'1292911416323342399',name:'Szefowa'}],
  plus:['1292911416264622197','1292911416264622196','1392281365072056350','1392281626813272187','1392281792148406353'],
+ deliveryProgress:['1429912106664202351','1429912235832246393','1429912321656098938','1429912387133112500','1429912453487005696'],
  minus:['1292911416264622199','1292911416264622198'],leave:'1361046239994450090',logs:'1554530259481665656'
 };
 export const labels={zatrudnij:'🍔 Zatrudnienie',plus:'⭐ Plus',minus:'⚠️ Minus',awans:'📈 Awans',degrad:'📉 Degradacja',zwolnij:'📋 Zwolnienie',urlop:'🌴 Urlop',zdejmijurlop:'☀️ Zakończenie urlopu',kolo:'🎡 Koło nagród',info:'📚 Kursy w tym tygodniu',kurs:'📚 Kurs #4',reset:'↺ Reset kursów'};
