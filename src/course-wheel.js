@@ -13,6 +13,9 @@ export function parseCourseLog(title,description){
 const canonical=value=>normalizedName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
 export const courseEventKey=(event,at)=>{const date=new Date(at);const bucket=Number.isNaN(date.getTime())?String(at):Math.floor(date.getTime()/120000);return `${canonical(event.player)}|${event.courseNumber}|${bucket}`;};
 export const courseAccountId=player=>{const bracket=[...String(player).matchAll(/\[([^\]]+)\]/g)].at(-1)?.[1]||player;return config.courseAccounts?.[canonical(bracket)]||null;};
+// Nie zgadujemy konta, gdy webhook nie daje jednoznacznego dopasowania. Taki wpis
+// zostaje pominięty bez powiadomienia na Discordzie, zamiast tworzyć hałas na logach.
+export const silentCourseMatchError=error=>/^(Kilka osób ma to samo imię i nazwisko\.|Nie znaleziono osoby o tym imieniu i nazwisku na serwerze Discord\.|Wpis kursu nie zawiera nazwy w nawiasie kwadratowym\.)/.test(String(error?.message||error||''));
 const memberId=person=>person.user_id||person.id;
 const memberNames=person=>[person.ic_name,person.displayName,person.nickname,person.username,person.user?.username,person.user?.globalName].filter(Boolean).map(canonical);
 const hasPhrase=(value,phrase)=>` ${value} `.includes(` ${phrase} `);
@@ -88,7 +91,7 @@ export async function processCourseLogs(db,svc){
     else await svc.recordCourse({targetId,messageId:item.message_id,playerName:item.event.player,courseNumber:item.event.courseNumber,occurredAt:item.occurred_at||item.created_at});
     await db.q("UPDATE imported_courses SET status='done' WHERE message_id=$1",[item.message_id]);
    }catch(err){
-    if(item.event.courseNumber===1){await db.q("UPDATE imported_courses SET status='ignored' WHERE message_id=$1",[item.message_id]);return;}
+    if(item.event.courseNumber===1||silentCourseMatchError(err)){await db.q("UPDATE imported_courses SET status='ignored' WHERE message_id=$1",[item.message_id]);return;}
     await db.transaction(async tx=>{
      await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie zapisano kursu',`${escapeMarkdown(item.event.player)} · Kurs #4\n${escapeMarkdown(err.message)}\nSprawdź pseudonim tej osoby na Discordzie.`]);
      await tx.query("UPDATE imported_courses SET status='failed' WHERE message_id=$1",[item.message_id]);
