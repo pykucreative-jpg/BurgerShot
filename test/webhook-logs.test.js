@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
-import {parseWebhookLog,webhookNotice,ingestWebhookLog,sourceChannel,matchEmployee,processWebhookLogs} from '../src/webhook-logs.js';
+import {parseWebhookLog,webhookNotice,ingestWebhookLog,sourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
 const title='BURGERSHOT - Zmiana stopnia';
 test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  const promotion=parseWebhookLog(title,'**Abdul Grushinski** zmienił(a) stopień pracownika **Harry Correa** z **Pracownik** na **Starszy Pracownik**.');
@@ -43,6 +43,12 @@ test('zdjęcie urlopu i jednoznaczne nazwisko',()=>{
  assert.equal(matchEmployee(e.person,new Map([['1',m]]),[]),'1');
  assert.throws(()=>matchEmployee(e.person,new Map([['1',m],['2',{...m,id:'2'}]]),[]),/Kilka/);
  assert.throws(()=>matchEmployee('Abdul Inny',new Map([['1',m]]),[]),/Nie znaleziono/);
+});
+
+test('błędy urlopu nie tworzą wpisu alarmowego na logach',()=>{
+ assert.equal(silentLeaveFailure({kind:'urlop'}),true);
+ assert.equal(silentLeaveFailure({kind:'zdejmijurlop'}),true);
+ assert.equal(silentLeaveFailure({kind:'awans'}),false);
 });
 
 test('kolejka wykonuje raz, oznacza osobę i zatrzymuje niejednoznaczne logi',async t=>{
