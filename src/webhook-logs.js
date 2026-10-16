@@ -8,6 +8,9 @@ const rankIndex=s=>ranks.findIndex(r=>r.toLocaleLowerCase('pl')===s.toLocaleLowe
 const leaveTime=value=>{const parsed=DateTime.fromFormat(value,'yyyy-MM-dd HH:mm',{zone:'Europe/Warsaw'});return parsed.isValid?parsed.toUTC().toISO():null;};
 const leaveDate=value=>DateTime.fromISO(value,{zone:'utc'}).setZone('Europe/Warsaw').toFormat('dd.MM.yyyy HH:mm');
 export const webhookRanks=config.ranks;
+// Urlop jest nadal zapisany w kolejce i historii. Brak możliwości zmiany rangi
+// (np. przez hierarchię Discorda) nie wymaga jednak komunikatu na kanale logów.
+export const silentLeaveFailure=event=>['urlop','zdejmijurlop'].includes(event?.kind);
 export const normalizedName=s=>clean(s).replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim().toLocaleLowerCase('pl');
 export function matchEmployee(name,members,employees){
  const wanted=normalizedName(name);
@@ -120,7 +123,7 @@ export async function processWebhookLogs(db,svc){
    });
   }catch(err){
    await db.transaction(async tx=>{
-    await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie wykonano automatycznego działania',`${escapeMarkdown(item.event.person||'Wszyscy pracownicy')} — ${escapeMarkdown(item.event.kind)}\n${escapeMarkdown(err.message)}\nSprawdź historię operacji.`]);
+    if(!silentLeaveFailure(item.event))await tx.query('INSERT INTO notifications(channel_id,title,body) VALUES($1,$2,$3)',[config.logs,'⚠️ Nie wykonano automatycznego działania',`${escapeMarkdown(item.event.person||'Wszyscy pracownicy')} — ${escapeMarkdown(item.event.kind)}\n${escapeMarkdown(err.message)}\nSprawdź historię operacji.`]);
     await tx.query("UPDATE imported_webhook_logs SET status='failed' WHERE message_id=$1",[item.message_id]);
    });
   }
