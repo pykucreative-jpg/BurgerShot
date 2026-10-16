@@ -80,6 +80,12 @@ test('urlop kończy się po restarcie i przywraca oryginalny pseudonim',async t=
  const {run,target,db,svc}=await setup(t);target.nickname='Jan Kowalski';await run('urlop',{endsAt:new Date(Date.now()+3600000)});assert.equal(target.nickname,'Jan Kowalski [urlop]');assert.ok(target.roles.cache.has(config.leave));
  await db.q("UPDATE leaves SET starts_at=now()-interval '2 hours',ends_at=now()-interval '1 hour'");await svc.tickLeaves();assert.equal(target.nickname,'Jan Kowalski');assert.equal(target.roles.cache.has(config.leave),false);assert.equal((await db.q('SELECT status FROM leaves')).rows[0].status,'ended');assert.equal((await db.q('SELECT * FROM notifications')).rows.length,1);await svc.tickLeaves();assert.equal((await db.q('SELECT * FROM notifications')).rows.length,1);
 });
+test('urlop osoby ponad botem zapisuje się bez zmiany rangi i pseudonimu',async t=>{
+ const {run,target,db}=await setup(t);target.manageable=false;
+ const result=await run('urlop',{endsAt:new Date(Date.now()+86400000)});
+ assert.match(result.description,/zapisany w systemie/);assert.equal(target.roles.cache.has(config.leave),false);
+ const leave=(await db.q("SELECT status FROM leaves WHERE user_id=$1",[target.id])).rows[0];assert.equal(leave.status,'active');
+});
 test('błąd po nadaniu roli urlopowej jest widoczny i daje się wznowić',async t=>{
  const {run,target,db,svc}=await setup(t);const set=target.setNickname;target.setNickname=async()=>{throw Object.assign(new Error('Missing permissions'),{code:50013});};await assert.rejects(()=>run('urlop',{endsAt:new Date(Date.now()+3600000)}));assert.equal((await db.q('SELECT status FROM logs')).rows[0].status,'partial');assert.equal((await db.q('SELECT status FROM leaves')).rows[0].status,'starting');target.setNickname=set;await svc.tickLeaves();assert.equal((await db.q('SELECT status FROM leaves')).rows[0].status,'active');
 });
