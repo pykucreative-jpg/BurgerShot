@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
-import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey,ingestCourseLog,recoverCourseLogsSince} from '../src/course-wheel.js';
+import {parseCourseLog,matchCourseEmployee,courseAccountId,courseEventKey,ingestCourseLog,recoverCourseLogsSince,silentCourseMatchError} from '../src/course-wheel.js';
 import {sourceChannel} from '../src/webhook-logs.js';
 
 test('odczytuje dokładny log ukończenia kursu ze screena i dopasowuje nazwę w nawiasie',()=>{
@@ -20,6 +20,12 @@ test('odczytuje dokładny log ukończenia kursu ze screena i dopasowuje nazwę w
  ]),'457');
  assert.equal(parseCourseLog('BURGERSHOT Zakończenie Kursu','Gracz Buleczka72 [Markos Valentierra] zakończył Kurs #3 dla burgershot.'),null);
  assert.equal(parseCourseLog('BURGERSHOT Zakończenie Kursu','Nieprawidłowa wiadomość'),null);
+});
+
+test('nie zgłasza na Discordzie kursu bez jednoznacznego dopasowania pracownika',()=>{
+ assert.equal(silentCourseMatchError(new Error('Kilka osób ma to samo imię i nazwisko. Sprawdź pseudonim tej osoby na Discordzie.')),true);
+ assert.equal(silentCourseMatchError(new Error('Nie znaleziono osoby o tym imieniu i nazwisku na serwerze Discord.')),true);
+ assert.equal(silentCourseMatchError(new Error('Brak połączenia z Discordem.')),false);
 });
 
 test('zapisuje każdy odrębny log #4, także gdy BurgerShot wysyła go jako aplikacja',async t=>{
