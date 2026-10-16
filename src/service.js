@@ -283,8 +283,8 @@ export function service(db, client, env) {
           if(!endsAt||new Date(endsAt)<=new Date()) throw new UserError('Koniec urlopu musi wypadać w przyszłości.');
           if((await db.q("SELECT id FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rowCount) throw new UserError('Ta osoba ma już urlop lub oczekujący wniosek.');
           const l=(await db.q(`INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,now(),$3,'scheduled',$4,$5,$6) RETURNING *`,[m.id,e.ic_name,endsAt,channelId,actor.id,actor.name])).rows[0];
-          steps.push('Zapisano urlop'); await activate(l,m,steps);
-          return {art:'urlop',title:'🌴 Czas na odpoczynek!',description:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':formatDate(endsAt),'👤 Zatwierdził(a)':`<@${actor.id}>`}};
+          steps.push('Zapisano urlop'); const activation=await activate(l,m,steps);
+          return {art:'urlop',title:'🌴 Czas na odpoczynek!',description:activation?.informational?`<@${m.id}>, Twój urlop został zapisany w systemie. Discord nie pozwala botowi zmienić Twojej rangi ani pseudonimu.`:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':formatDate(endsAt),'👤 Zatwierdził(a)':`<@${actor.id}>`}};
         }
         if(kind==='zdejmijurlop') {
           const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending')",[m.id])).rows[0];
@@ -297,6 +297,11 @@ export function service(db, client, env) {
     });
   }
   async function activate(l,m,steps=[]) {
+    if(!m.manageable){
+      await db.q("UPDATE leaves SET status='active',error=NULL,retry_at=NULL WHERE id=$1",[l.id]);
+      steps.push('Zapisano urlop bez zmiany rangi i pseudonimu');
+      return {informational:true};
+    }
     await checkRoles(m,[config.leave]);
     const nick=l.applied_nick || leaveNickname(m.displayName);
     if(l.status!=='starting'){
@@ -308,6 +313,11 @@ export function service(db, client, env) {
     await db.q("UPDATE leaves SET status='active',error=NULL,retry_at=NULL WHERE id=$1",[l.id]);
   }
   async function endLeave(l,m,steps=[]) {
+    if(!m.manageable){
+      await db.q("UPDATE leaves SET status='ended',error=NULL,retry_at=NULL WHERE id=$1",[l.id]);
+      steps.push('Zakończono zapis urlopu bez zmiany rangi i pseudonimu');
+      return {informational:true};
+    }
     await checkRoles(m,[config.leave]);
     await db.q("UPDATE leaves SET status='ending' WHERE id=$1",[l.id]);
     await m.roles.remove(config.leave); steps.push('Zdjęto rangę urlopową');
