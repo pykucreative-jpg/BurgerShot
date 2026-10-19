@@ -5,6 +5,7 @@ import {UserError,text} from './domain.js';
 const dailyWindow=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('day');return [start.toUTC().toJSDate(),start.plus({days:1}).toUTC().toJSDate()];};
 const cleanName=value=>text(value,80).replace(/\s+/g,' ').trim();
 export const setRemaining=issued=>Math.max(0,5-Number(issued||0));
+export const canRecordDelivery=member=>Boolean(member?.roles?.cache?.has(config.staff)||member?.roles?.cache?.has(config.employee));
 const initialMedics=['Alejandro Restrepo','Charlotte Lyons','Cioppini Bartieu','Damon Alfonso','George Hyattmore','Gorgio Wilson','Haruto Takanama','Ivy Mendez','Jack Kimono','Jessica Valentino','Kevin Maverick','Kim Frost','Leon Vidal','Lucas Valentino','Madison Black','Madison Hyattmore','Martino Skurwisinio','Michael Frost','Owen Evans','Paulo Martini','Rosalie Vitalyi','Santiago Mendez','Shyshko Yad','Theodor Rossi','Tony Kimono','Vivienne Castillo'];
 
 export function medicSets(db,client,svc,card){
@@ -85,7 +86,8 @@ export function medicSets(db,client,svc,card){
   await panel();return result;
  }
  async function delivery(actorId,driverId,helperIds,name,requestId){
-  await svc.authorize(actorId);
+  const actor=await svc.member(actorId);
+  if(!canRecordDelivery(actor))throw new UserError('Dostawy może wpisywać wyłącznie Zarząd albo osoba z rangą Firma DC.');
   const uniqueHelpers=[...new Set(helperIds.filter(Boolean))];
   const [driver,...helpers]=await Promise.all([svc.member(driverId),...uniqueHelpers.map(id=>svc.member(id))]);
   if(!driver.roles.cache.has(config.staff))throw new UserError('Osoba dostarczająca musi mieć rangę Zarząd.');
