@@ -6,6 +6,7 @@ const dailyWindow=()=>{const start=DateTime.now().setZone('Europe/Warsaw').start
 const cleanName=value=>text(value,80).replace(/\s+/g,' ').trim();
 export const setRemaining=issued=>Math.max(0,5-Number(issued||0));
 export const canRecordDelivery=member=>Boolean(member?.roles?.cache?.has(config.staff)||member?.roles?.cache?.has(config.employee));
+export const canDriveDelivery=canRecordDelivery;
 const initialMedics=['Alejandro Restrepo','Charlotte Lyons','Cioppini Bartieu','Damon Alfonso','George Hyattmore','Gorgio Wilson','Haruto Takanama','Ivy Mendez','Jack Kimono','Jessica Valentino','Kevin Maverick','Kim Frost','Leon Vidal','Lucas Valentino','Madison Black','Madison Hyattmore','Martino Skurwisinio','Michael Frost','Owen Evans','Paulo Martini','Rosalie Vitalyi','Santiago Mendez','Shyshko Yad','Theodor Rossi','Tony Kimono','Vivienne Castillo'];
 
 export function medicSets(db,client,svc,card){
@@ -90,13 +91,15 @@ export function medicSets(db,client,svc,card){
   if(!canRecordDelivery(actor))throw new UserError('Dostawy może wpisywać wyłącznie Zarząd albo osoba z rangą Firma DC.');
   const uniqueHelpers=[...new Set(helperIds.filter(Boolean))];
   const [driver,...helpers]=await Promise.all([svc.member(driverId),...uniqueHelpers.map(id=>svc.member(id))]);
-  if(!driver.roles.cache.has(config.staff))throw new UserError('Osoba dostarczająca musi mieć rangę Zarząd.');
+  if(!canDriveDelivery(driver))throw new UserError('Osoba dostarczająca musi mieć rangę Zarząd albo Firma DC.');
   const trackedHelpers=helpers.filter(helper=>helper.manageable);
   if(trackedHelpers.some(helper=>!helper.roles.cache.has(config.employee)))throw new UserError('Każda osoba pomagająca, której bot może nadać rangę, musi mieć rangę Firma DC.');
   const medic=(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
   if(!medic)throw new UserError('Wybierz osobę z listy medyków.');
-  const progress=await Promise.all(trackedHelpers.map(helper=>svc.recordDelivery(helper.id,requestId)));
-  return {driver,helpers,medic,progress,mentionsOnly:helpers.filter(helper=>!helper.manageable).map(helper=>helper.id)};
+  const tracked=[...(driver.manageable&&driver.roles.cache.has(config.employee)?[driver]:[]),...trackedHelpers]
+   .filter((person,index,all)=>all.findIndex(other=>other.id===person.id)===index);
+  const progress=await Promise.all(tracked.map(person=>svc.recordDelivery(person.id,requestId)));
+  return {driver,helpers,medic,progress,bonusActorId:driver.roles.cache.has(config.staff)?driver.id:config.errorAdmin,mentionsOnly:helpers.filter(helper=>!helper.manageable).map(helper=>helper.id)};
  }
  async function autocomplete(i){
   const query=i.options.getFocused().trim();
