@@ -197,7 +197,7 @@ export function bot(db,client,svc,env){
     const result=await medicSetManager.delivery(i.user.id,i.options.getUser('dostarczyl',true).id,helperIds,i.options.getString('odebral',true),i.id);
     const bonuses=[];
     for(const progress of result.progress.filter(entry=>entry.bonus&&!entry.duplicate)){
-      bonuses.push({targetId:progress.userId,result:await svc.run({kind:'plus',actorId:result.driver.id,targetId:progress.userId,reason:'Automatyczny plus za 5 dostaw.',channelId:config.deliveriesChannel,requestId:`delivery-plus:${i.id}:${progress.userId}`})});
+      bonuses.push({targetId:progress.userId,result:await svc.run({kind:'plus',actorId:result.bonusActorId,targetId:progress.userId,reason:'Automatyczny plus za 5 dostaw.',channelId:config.deliveriesChannel,requestId:`delivery-plus:${i.id}:${progress.userId}`})});
     }
     const date=DateTime.now().setZone('Europe/Warsaw').toFormat('dd.MM.yyyy, HH:mm');
     await i.reply({embeds:[card({title:'🍔 DOSTAWA MEDYCZNA',description:`Kto dostarczył: <@${result.driver.id}>\nKto pomógł: ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}\nKto odebrał: **${result.medic.full_name}**\nData: ${date}`})],allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)]}});
