@@ -386,7 +386,7 @@ export function service(db, client, env) {
           }
           else return {noop:true,skipNotice:true};
         }else throw new UserError('Nieznane działanie z logu.');
-        return {art:event.kind==='zwolnij'?'zwolnij':event.kind==='urlop'?'urlop':undefined,title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
+        return {skipNotice:Boolean(event.skipNotice),art:event.kind==='zwolnij'?'zwolnij':event.kind==='urlop'?'urlop':undefined,title:webhookNotice(event).title,description:`<@${m.id}> • ${event.person}`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':event.actor}};
       });
     });
   }
