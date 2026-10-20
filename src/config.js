@@ -1,6 +1,7 @@
 export const config={
  automatedLogActions:false,
  automatedDismissalLogs:true,dismissalLogChannel:'1519475366144770050',
+ automatedActivityLogs:true,activityLogChannel:'1561815392383410196',
  tabletChannel:'1502336969605251102',courseChannel:'1502336289339478138',coursePanelChannel:'1555666755886784523',bingoPanelChannel:'1558700010462388254',bingoCategory:'1558704387487170640',bingoArchiveChannel:'1529899693973307606',medicSetsChannel:'1558936138972930150',medicListChannel:'1522278726119850154',deliveriesChannel:'1502335541537145005', actionChannels:{plus:'1502335672361549874',minus:'1502335801143464076',awans:'1502335910220533830',degrad:'1502336014834860142',zwolnij:'1502336111446462717'},
  staff:'1295044894825381950',employee:'1465037223350243390',
  errorAdmin:'795755381744861184',
