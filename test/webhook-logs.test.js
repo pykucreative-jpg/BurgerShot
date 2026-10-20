@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
-import {parseWebhookLog,parseDismissalLog,webhookNotice,ingestWebhookLog,ingestDismissalLog,sourceChannel,dismissalSourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
+import {parseWebhookLog,parseDismissalLog,parseActivityLog,webhookNotice,ingestWebhookLog,ingestDismissalLog,trackActivityLog,sourceChannel,dismissalSourceChannel,activitySourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
 const title='BURGERSHOT - Zmiana stopnia';
 test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  const promotion=parseWebhookLog(title,'**Abdul Grushinski** zmienił(a) stopień pracownika **Harry Correa** z **Pracownik** na **Starszy Pracownik**.');
@@ -55,6 +55,20 @@ test('nowy log zwolnienia odczytuje osobę i znajduje ją mimo dopisków w pseud
  const message={id:'new-dismissal',guildId:'guild',channelId:dismissalSourceChannel,applicationId:'log-app',embeds:[{author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono Michael Jonson.'}]};
  assert.equal(await ingestDismissalLog(db,message,'guild'),true);
  assert.equal(await ingestDismissalLog(db,message,'guild'),false);
+});
+
+test('log rozpoczęcia kursu służy wyłącznie do aktywności',()=>{
+ assert.deepEqual(parseActivityLog({author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 4 punkty do zaliczenia.'}),{person:'David Alfonso'});
+ assert.equal(parseActivityLog({author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 3 punkty do zaliczenia.'}),null);
+});
+
+test('aktywność z nowego kanału używa pamięci serwera i nie nalicza kursu',async()=>{
+ const member={id:'david',displayName:'David Alfonso [kurs]',user:{bot:false,username:'david'}};
+ let marked;
+ const svc={guild:async()=>({members:{cache:new Map([[member.id,member]]),fetch:async()=>{throw new Error('Niepotrzebne pobranie listy');}}}),markActiveCourse:async value=>{marked=value;}};
+ const message={id:'start-course',guildId:'guild',channelId:activitySourceChannel,applicationId:'log-app',embeds:[{author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 4 punkty do zaliczenia.'}]};
+ assert.equal(await trackActivityLog(message,'guild',svc),true);
+ assert.deepEqual(marked,{targetId:'david',messageId:'start-course',playerName:'David Alfonso'});
 });
 
 test('błędy urlopu nie tworzą wpisu alarmowego na logach',()=>{
