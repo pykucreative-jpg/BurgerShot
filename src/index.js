@@ -5,7 +5,7 @@ import {courseReminder} from './courses.js';
 import {queueRewards} from './rewards.js';
 import {Events} from 'discord.js';
 import {DateTime} from 'luxon';
-import {environment} from './config.js';
+import {config,environment} from './config.js';
 import {database} from './db.js';
 import {service} from './service.js';
 import {makeClient,bot} from './bot.js';
@@ -16,15 +16,14 @@ let initialized=false,working=false,stopping=false,lastMaintenance=0,lastCourseP
  env.sessionSecret=await sessionKey(db);
  const httpServer=web(db,svc,discord,env,()=>initialized&&client.isReady()).listen(env.port,'0.0.0.0',()=>console.log('Panel BurgerShot gotowy.'));
 const syncCommands=async()=>{try{await discord.syncCommands();nextCommandSync=Date.now()+1800000;console.log('Komendy Discord zsynchronizowane.');}catch(e){nextCommandSync=Date.now()+60000;console.error('Synchronizacja komend',e.code||e.name);}};
-const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{if(Date.now()>=nextCommandSync)await syncCommands();const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=3000){lastMaintenance=Date.now();await processWebhookLogs(db,svc);await processCourseLogs(db,svc);await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}if(Date.now()-lastCoursePresence>=600000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
+const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{if(Date.now()>=nextCommandSync)await syncCommands();const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=3000){lastMaintenance=Date.now();if(config.automatedLogActions){await processWebhookLogs(db,svc);await processCourseLogs(db,svc);}else if(config.automatedDismissalLogs)await processWebhookLogs(db,svc,{dismissalsOnly:true});await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}if(config.automatedLogActions&&Date.now()-lastCoursePresence>=600000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
 async function shutdown(code=0){if(stopping)return;stopping=true;clearInterval(timer);httpServer.close();client.destroy();await db.pool.end();process.exit(code);}
 const sundayCourseRecoveryStart=()=>DateTime.now().setZone('Europe/Warsaw').startOf('week').set({hour:21,minute:40,second:0,millisecond:0}).toUTC().toJSDate();
 client.once(Events.ClientReady,async()=>{try{const optional=async(name,work)=>{try{return await work();}catch(e){console.error(`Uruchomienie: ${name}`,e.code||e.name);return null;}};
  await syncCommands();
- const reset=await svc.resetCoursesOnRelease();if(reset.ran)console.log(`Wyzerowano kursy dla ${reset.count} osób po aktualizacji zasad.`);const recovered=await optional('odzyskiwanie kursów',()=>recoverCourseLogsSince(db,client,env.guildId,sundayCourseRecoveryStart()));if(recovered)console.log(`Odzyskano ${recovered} kursów od niedzieli 21:40.`);const retried=await optional('ponowienie kursów',()=>retryFailedCoursesSinceReset(db));if(retried)await optional('przetwarzanie kursów',()=>processCourseLogs(db,svc));
+ if(config.automatedLogActions){const reset=await svc.resetCoursesOnRelease();if(reset.ran)console.log(`Wyzerowano kursy dla ${reset.count} osób po aktualizacji zasad.`);const recovered=await optional('odzyskiwanie kursów',()=>recoverCourseLogsSince(db,client,env.guildId,sundayCourseRecoveryStart()));if(recovered)console.log(`Odzyskano ${recovered} kursów od niedzieli 21:40.`);const retried=await optional('ponowienie kursów',()=>retryFailedCoursesSinceReset(db));if(retried)await optional('przetwarzanie kursów',()=>processCourseLogs(db,svc));}
  await discord.panel();
- await optional('odświeżenie statusu',()=>svc.refreshCoursePresence());
- lastCoursePresence=Date.now();initialized=true;console.log('BurgerShot gotowy.');}catch(e){console.error('Uruchomienie',e.code||e.name);await shutdown(1);}});
+ if(config.automatedLogActions){await optional('odświeżenie statusu',()=>svc.refreshCoursePresence());lastCoursePresence=Date.now();}initialized=true;console.log('BurgerShot gotowy.');}catch(e){console.error('Uruchomienie',e.code||e.name);await shutdown(1);}});
 client.on(Events.Error,e=>console.error('Discord',e.code||e.name));
 process.on('SIGTERM',()=>shutdown());process.on('SIGINT',()=>shutdown());
 await client.login(env.token).catch(async e=>{console.error('Logowanie',e.code||e.name);await shutdown(1);});
