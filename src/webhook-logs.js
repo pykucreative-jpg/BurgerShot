@@ -2,6 +2,7 @@ import {escapeMarkdown} from 'discord.js';
 import {DateTime} from 'luxon';
 import {config} from './config.js';
 export const sourceChannel='1530621541325340682';
+export const dismissalSourceChannel=config.dismissalLogChannel;
 const ranks=config.ranks.map(rank=>rank.name);
 const clean=s=>String(s||'').replace(/\*\*|__|`/g,'').replace(/\s+/g,' ').trim();
 const rankIndex=s=>ranks.findIndex(r=>r.toLocaleLowerCase('pl')===s.toLocaleLowerCase('pl'));
@@ -12,11 +13,13 @@ export const webhookRanks=config.ranks;
 // (np. przez hierarchię Discorda) nie wymaga jednak komunikatu na kanale logów.
 export const silentLeaveFailure=event=>['urlop','zdejmijurlop'].includes(event?.kind);
 export const normalizedName=s=>clean(s).replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim().toLocaleLowerCase('pl');
+const comparableName=s=>normalizedName(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const containsFullName=(value,name)=>` ${comparableName(value)} `.includes(` ${comparableName(name)} `);
 export function matchEmployee(name,members,employees){
  const wanted=normalizedName(name);
  if(wanted.split(' ').length<2)throw new Error('Brak pełnego imienia i nazwiska.');
  const ids=new Set(employees.filter(e=>normalizedName(e.ic_name)===wanted).map(e=>e.user_id));
- const matches=[...members.values()].filter(m=>!m.user.bot&&(normalizedName(m.displayName)===wanted||ids.has(m.id)));
+ const matches=[...members.values()].filter(m=>!m.user.bot&&(ids.has(m.id)||[m.displayName,m.nickname,m.user?.username,m.user?.globalName].filter(Boolean).some(value=>containsFullName(value,name))));
  if(matches.length!==1)throw new Error(matches.length?'Kilka osób ma takie imię i nazwisko.':'Nie znaleziono pracownika po pełnym imieniu i nazwisku.');
  return matches[0].id;
 }
@@ -50,6 +53,13 @@ export function parseWebhookLog(title,description){
  }
  return null;
 }
+export function parseDismissalLog(embed){
+ const title=clean(embed?.title),body=clean(embed?.description);
+ if(!/^Zwolnienie$/i.test(title))return null;
+ const person=/^Zwolniono\s+(.+?)\.?$/i.exec(body)?.[1];
+ const actor=clean(embed?.author?.name);
+ return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log',skipNotice:true}:null;
+}
 export function webhookNotice(event,targetId){
  const person=targetId?`<@${targetId}> (${escapeMarkdown(event.person)})`:escapeMarkdown(event.person),actor=escapeMarkdown(event.actor);
  if(event.kind==='zdejmijurlop')return {channel:'1502336468016828567',title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
@@ -74,6 +84,13 @@ export async function ingestWebhookLog(db,message,guildId){
   return true;
  });
 }
+export async function ingestDismissalLog(db,message,guildId){
+ const sourceId=message.webhookId||message.applicationId||(message.author?.bot&&message.author?.id);
+ if(message.guildId!==guildId||message.channelId!==dismissalSourceChannel||!sourceId)return false;
+ const events=(message.embeds||[]).map(parseDismissalLog).filter(Boolean);
+ if(events.length!==1)return false;
+ return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0])])).rows.length));
+}
 const memberSnapshots=new WeakMap();
 async function membersForImport(svc){
  const previous=memberSnapshots.get(svc);
@@ -83,8 +100,8 @@ async function membersForImport(svc){
  memberSnapshots.set(svc,{guild,members,at:Date.now()});
  return guild.members.cache||members;
 }
-export async function processWebhookLogs(db,svc){
- const pending=(await db.q("SELECT * FROM imported_webhook_logs WHERE status='pending' ORDER BY created_at,message_id LIMIT 25")).rows;
+export async function processWebhookLogs(db,svc,{dismissalsOnly=false}={}){
+ const pending=(await db.q(dismissalsOnly?"SELECT * FROM imported_webhook_logs WHERE status='pending' AND event->>'kind'='zwolnij' AND event->>'source'='dismissal-log' ORDER BY created_at,message_id LIMIT 25":"SELECT * FROM imported_webhook_logs WHERE status='pending' ORDER BY created_at,message_id LIMIT 25")).rows;
  for(const item of pending){
   // Preserve event order while Discord asks us to wait.
   if(item.retry_at&&new Date(item.retry_at)>new Date())break;
