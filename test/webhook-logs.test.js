@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
-import {parseWebhookLog,webhookNotice,ingestWebhookLog,sourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
+import {parseWebhookLog,parseDismissalLog,webhookNotice,ingestWebhookLog,ingestDismissalLog,sourceChannel,dismissalSourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
 const title='BURGERSHOT - Zmiana stopnia';
 test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  const promotion=parseWebhookLog(title,'**Abdul Grushinski** zmienił(a) stopień pracownika **Harry Correa** z **Pracownik** na **Starszy Pracownik**.');
@@ -43,6 +43,18 @@ test('zdjęcie urlopu i jednoznaczne nazwisko',()=>{
  assert.equal(matchEmployee(e.person,new Map([['1',m]]),[]),'1');
  assert.throws(()=>matchEmployee(e.person,new Map([['1',m],['2',{...m,id:'2'}]]),[]),/Kilka/);
  assert.throws(()=>matchEmployee('Abdul Inny',new Map([['1',m]]),[]),/Nie znaleziono/);
+});
+
+test('nowy log zwolnienia odczytuje osobę i znajduje ją mimo dopisków w pseudonimie',async t=>{
+ const event=parseDismissalLog({author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono **Michael Jonson**.'});
+ assert.deepEqual(event,{kind:'zwolnij',actor:'Ashe Moore',person:'Michael Jonson',source:'dismissal-log',skipNotice:true});
+ const member={id:'michael',displayName:'[Firma DC] Michael Jonson • nocna zmiana',user:{bot:false,username:'michael'}};
+ assert.equal(matchEmployee(event.person,new Map([[member.id,member]]),[]),'michael');
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={transaction:fn=>pg.transaction(tx=>fn({query:(sql,params)=>tx.query(sql,params)}))};
+ const message={id:'new-dismissal',guildId:'guild',channelId:dismissalSourceChannel,applicationId:'log-app',embeds:[{author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono Michael Jonson.'}]};
+ assert.equal(await ingestDismissalLog(db,message,'guild'),true);
+ assert.equal(await ingestDismissalLog(db,message,'guild'),false);
 });
 
 test('błędy urlopu nie tworzą wpisu alarmowego na logach',()=>{
