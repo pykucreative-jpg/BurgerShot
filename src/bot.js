@@ -1,4 +1,4 @@
-import {ingestWebhookLog,ingestDismissalLog,processWebhookLogs} from './webhook-logs.js';
+import {ingestWebhookLog,ingestDismissalLog,trackActivityLog,processWebhookLogs} from './webhook-logs.js';
 import {ingestCourseLog,processCourseLogs} from './course-wheel.js';
 import {previewRewards,rewardReport,payReward} from './rewards.js';
 import {badges} from './badges.js';
@@ -25,7 +25,7 @@ export function commands(hidden=false){
 export function bot(db,client,svc,env){
  let processingIncoming=false,incomingAgain=false;
  const processIncoming=async({dismissalsOnly=false}={})=>{
-  if(!config.automatedLogActions&&!config.automatedDismissalLogs)return;
+  if(!config.automatedLogActions&&!config.automatedDismissalLogs&&!config.automatedActivityLogs)return;
   if(processingIncoming){incomingAgain=true;return;}
   processingIncoming=true;
   try{do{
@@ -37,7 +37,9 @@ export function bot(db,client,svc,env){
  };
  const ingestIncoming=async message=>{
   if(config.automatedLogActions){const [personnel,course]=await Promise.all([ingestWebhookLog(db,message,env.guildId),ingestCourseLog(db,message,env.guildId)]);if(personnel||course)await processIncoming();return;}
-  if(config.automatedDismissalLogs&&await ingestDismissalLog(db,message,env.guildId))await processIncoming({dismissalsOnly:true});
+  const [dismissal,activity]=await Promise.all([config.automatedDismissalLogs?ingestDismissalLog(db,message,env.guildId):false,config.automatedActivityLogs?trackActivityLog(message,env.guildId,svc):false]);
+  if(dismissal)await processIncoming({dismissalsOnly:true});
+  if(activity)await svc.refreshCoursePresence();
  };
  client.on(Events.MessageCreate,m=>{ingestIncoming(m).catch(err=>console.error('Obsługa nowego logu',err.code||err.name));});
  client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestIncoming(m).catch(err=>console.error('Obsługa aktualizacji logu',err.code||err.name));});
