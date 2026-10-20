@@ -3,6 +3,7 @@ import {DateTime} from 'luxon';
 import {config} from './config.js';
 export const sourceChannel='1530621541325340682';
 export const dismissalSourceChannel=config.dismissalLogChannel;
+export const activitySourceChannel=config.activityLogChannel;
 const ranks=config.ranks.map(rank=>rank.name);
 const clean=s=>String(s||'').replace(/\*\*|__|`/g,'').replace(/\s+/g,' ').trim();
 const rankIndex=s=>ranks.findIndex(r=>r.toLocaleLowerCase('pl')===s.toLocaleLowerCase('pl'));
@@ -60,6 +61,11 @@ export function parseDismissalLog(embed){
  const actor=clean(embed?.author?.name);
  return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log',skipNotice:true}:null;
 }
+export function parseActivityLog(embed){
+ const title=clean(embed?.title),body=clean(embed?.description),person=clean(embed?.author?.name);
+ if(!/^Rozpoczęty kurs$/i.test(title)||!/^Kurs firmowy\s*[—-]\s*4 punkty do zaliczenia\.?$/i.test(body))return null;
+ return person?{person}:null;
+}
 export function webhookNotice(event,targetId){
  const person=targetId?`<@${targetId}> (${escapeMarkdown(event.person)})`:escapeMarkdown(event.person),actor=escapeMarkdown(event.actor);
  if(event.kind==='zdejmijurlop')return {channel:'1502336468016828567',title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
@@ -90,6 +96,20 @@ export async function ingestDismissalLog(db,message,guildId){
  const events=(message.embeds||[]).map(parseDismissalLog).filter(Boolean);
  if(events.length!==1)return false;
  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0])])).rows.length));
+}
+export async function trackActivityLog(message,guildId,svc){
+ const sourceId=message.webhookId||message.applicationId||(message.author?.bot&&message.author?.id);
+ if(message.guildId!==guildId||message.channelId!==activitySourceChannel||!sourceId)return false;
+ const events=(message.embeds||[]).map(parseActivityLog).filter(Boolean);
+ if(events.length!==1)return false;
+ try{
+  const guild=await svc.guild();
+  let targetId;
+  try{targetId=matchEmployee(events[0].person,guild.members.cache,[]);}
+  catch{targetId=matchEmployee(events[0].person,await guild.members.fetch(),[]);}
+  await svc.markActiveCourse({targetId,messageId:message.id,playerName:events[0].person});
+  return true;
+ }catch{return false;}
 }
 const memberSnapshots=new WeakMap();
 async function membersForImport(svc){
