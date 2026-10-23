@@ -48,11 +48,12 @@ test('zdjęcie urlopu i jednoznaczne nazwisko',()=>{
 test('nowy log zwolnienia odczytuje osobę i znajduje ją mimo dopisków w pseudonimie',async t=>{
  const event=parseDismissalLog({author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono **Michael Jonson**.'});
  assert.deepEqual(event,{kind:'zwolnij',actor:'Ashe Moore',person:'Michael Jonson',source:'dismissal-log',skipNotice:true});
+ assert.deepEqual(parseDismissalLog({title:'Zwolnienie',description:'Zwolniono Michael Jonson.'},{author:{username:'ashe.moore'}}),{kind:'zwolnij',actor:'ashe.moore',person:'Michael Jonson',source:'dismissal-log',skipNotice:true});
  const member={id:'michael',displayName:'[Firma DC] Michael Jonson • nocna zmiana',user:{bot:false,username:'michael'}};
  assert.equal(matchEmployee(event.person,new Map([[member.id,member]]),[]),'michael');
  const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
  const db={transaction:fn=>pg.transaction(tx=>fn({query:(sql,params)=>tx.query(sql,params)}))};
- const message={id:'new-dismissal',guildId:'guild',channelId:dismissalSourceChannel,applicationId:'log-app',embeds:[{author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono Michael Jonson.'}]};
+ const message={id:'new-dismissal',guildId:'guild',channelId:dismissalSourceChannel,author:{username:'log-autor'},embeds:[{author:{name:'Ashe Moore'},title:'Zwolnienie',description:'Zwolniono Michael Jonson.'}]};
  assert.equal(await ingestDismissalLog(db,message,'guild'),true);
  assert.equal(await ingestDismissalLog(db,message,'guild'),false);
 });
