@@ -54,11 +54,11 @@ export function parseWebhookLog(title,description){
  }
  return null;
 }
-export function parseDismissalLog(embed){
+export function parseDismissalLog(embed,message={}){
  const title=clean(embed?.title),body=clean(embed?.description);
  if(!/^Zwolnienie$/i.test(title))return null;
  const person=/^Zwolniono\s+(.+?)\.?$/i.exec(body)?.[1];
- const actor=clean(embed?.author?.name);
+ const actor=clean(embed?.author?.name||message.member?.displayName||message.author?.globalName||message.author?.username);
  return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log',skipNotice:true}:null;
 }
 export function parseActivityLog(embed,message={}){
@@ -93,11 +93,10 @@ export async function ingestWebhookLog(db,message,guildId){
  });
 }
 export async function ingestDismissalLog(db,message,guildId){
- const sourceId=message.webhookId||message.applicationId||(message.author?.bot&&message.author?.id);
- if(message.guildId!==guildId||message.channelId!==dismissalSourceChannel||!sourceId)return false;
- const events=(message.embeds||[]).map(parseDismissalLog).filter(Boolean);
+ if(message.guildId!==guildId||message.channelId!==dismissalSourceChannel)return false;
+ const events=(message.embeds||[]).map(embed=>parseDismissalLog(embed,message)).filter(Boolean);
  if(events.length!==1)return false;
- return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0])])).rows.length));
+ return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(message.webhookId||message.applicationId||message.author?.id||'channel-log'),JSON.stringify(events[0])])).rows.length));
 }
 export async function trackActivityLog(message,guildId,svc){
  if(message.guildId!==guildId||message.channelId!==activitySourceChannel)return false;
