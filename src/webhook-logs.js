@@ -61,9 +61,11 @@ export function parseDismissalLog(embed){
  const actor=clean(embed?.author?.name);
  return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log',skipNotice:true}:null;
 }
-export function parseActivityLog(embed){
- const title=clean(embed?.title),body=clean(embed?.description),person=clean(embed?.author?.name);
- if(!/^Rozpoczęty kurs$/i.test(title)||!/^Kurs firmowy\s*[—-]\s*4 punkty do zaliczenia\.?$/i.test(body))return null;
+export function parseActivityLog(embed,message={}){
+ const title=clean(embed?.title),person=clean(embed?.author?.name||message.member?.displayName||message.author?.globalName||message.author?.username);
+ // Kanał jest przeznaczony wyłącznie dla logów kursów. Tytuł pozostaje jedynym
+ // warunkiem, aby zmiana treści zadania w G-RP nie zatrzymała aktywności.
+ if(!/^Rozpoczęty kurs$/i.test(title))return null;
  return person?{person}:null;
 }
 export function webhookNotice(event,targetId){
@@ -98,9 +100,8 @@ export async function ingestDismissalLog(db,message,guildId){
  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(sourceId),JSON.stringify(events[0])])).rows.length));
 }
 export async function trackActivityLog(message,guildId,svc){
- const sourceId=message.webhookId||message.applicationId||(message.author?.bot&&message.author?.id);
- if(message.guildId!==guildId||message.channelId!==activitySourceChannel||!sourceId)return false;
- const events=(message.embeds||[]).map(parseActivityLog).filter(Boolean);
+ if(message.guildId!==guildId||message.channelId!==activitySourceChannel)return false;
+ const events=(message.embeds||[]).map(embed=>parseActivityLog(embed,message)).filter(Boolean);
  if(events.length!==1)return false;
  try{
   const guild=await svc.guild();
