@@ -59,14 +59,15 @@ test('nowy log zwolnienia odczytuje osobę i znajduje ją mimo dopisków w pseud
 
 test('log rozpoczęcia kursu służy wyłącznie do aktywności',()=>{
  assert.deepEqual(parseActivityLog({author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 4 punkty do zaliczenia.'}),{person:'David Alfonso'});
- assert.equal(parseActivityLog({author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 3 punkty do zaliczenia.'}),null);
+ assert.deepEqual(parseActivityLog({title:'Rozpoczęty kurs'},{author:{username:'david.alfonso'}}),{person:'david.alfonso'});
+ assert.equal(parseActivityLog({author:{name:'David Alfonso'},title:'Zakończony kurs'}),null);
 });
 
 test('aktywność z nowego kanału używa pamięci serwera i nie nalicza kursu',async()=>{
  const member={id:'david',displayName:'David Alfonso [kurs]',user:{bot:false,username:'david'}};
  let marked;
  const svc={guild:async()=>({members:{cache:new Map([[member.id,member]]),fetch:async()=>{throw new Error('Niepotrzebne pobranie listy');}}}),markActiveCourse:async value=>{marked=value;}};
- const message={id:'start-course',guildId:'guild',channelId:activitySourceChannel,applicationId:'log-app',embeds:[{author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 4 punkty do zaliczenia.'}]};
+ const message={id:'start-course',guildId:'guild',channelId:activitySourceChannel,author:{username:'not-used'},embeds:[{author:{name:'David Alfonso'},title:'Rozpoczęty kurs',description:'Kurs firmowy — 4 punkty do zaliczenia.'}]};
  assert.equal(await trackActivityLog(message,'guild',svc),true);
  assert.deepEqual(marked,{targetId:'david',messageId:'start-course',playerName:'David Alfonso'});
 });
