@@ -59,7 +59,7 @@ export function parseDismissalLog(embed,message={}){
  if(!/^Zwolnienie$/i.test(title))return null;
  const person=/^Zwolniono\s+(.+?)\.?$/i.exec(body)?.[1];
  const actor=clean(embed?.author?.name||message.member?.displayName||message.author?.globalName||message.author?.username);
- return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log',skipNotice:true}:null;
+ return person&&actor?{kind:'zwolnij',actor,person,source:'dismissal-log'}:null;
 }
 export function parseActivityLog(embed,message={}){
  const title=clean(embed?.title),person=clean(embed?.author?.name||message.member?.displayName||message.author?.globalName||message.author?.username);
