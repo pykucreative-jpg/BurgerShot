@@ -92,6 +92,13 @@ CREATE TABLE IF NOT EXISTS delivery_events (
  PRIMARY KEY(request_id,user_id)
 );
 
+CREATE TABLE IF NOT EXISTS mechanic_deliveries (
+ request_id text PRIMARY KEY, delivered_by jsonb NOT NULL, created_by text NOT NULL,
+ recipient text, proof_url text, quantity integer NOT NULL CHECK(quantity > 0),
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS mechanic_deliveries_weekly ON mechanic_deliveries(created_at);
+
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_at timestamptz;
 ALTER TABLE reward_reports ADD COLUMN IF NOT EXISTS settled_by text;
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS reward_cutoff text;
