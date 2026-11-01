@@ -78,12 +78,13 @@ export function bot(db,client,svc,env){
    let channel;
    try{channel=await client.channels.fetch(id);}catch{continue;}
    if(!channel?.isTextBased?.()||!channel.messages?.fetch)continue;
-   const messages=await channel.messages.fetch({limit:100});
+   let messages;
+   try{messages=await channel.messages.fetch({limit:100});}catch{continue;}
    for(const message of messages.values()){
     const embed=message.embeds.find(item=>item.title?.includes('DOSTAWA MECHANIKA')),proof=[...message.attachments.values()].find(imageAttachment);
     if(message.author?.id!==client.user?.id||!embed?.title?.includes('DOSTAWA MECHANIKA')||embed.image||!proof)continue;
     const file=proofFile(proof),updated=EmbedBuilder.from(embed).setImage(`attachment://${file.name}`);
-    await message.edit({embeds:[updated],attachments:[],files:[file],allowedMentions:{parse:[]}});
+    try{await message.edit({embeds:[updated],attachments:[],files:[file],allowedMentions:{parse:[]}});}catch{continue;}
    }
   }
  };
