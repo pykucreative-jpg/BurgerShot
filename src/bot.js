@@ -82,9 +82,14 @@ export function bot(db,client,svc,env){
    try{messages=await channel.messages.fetch({limit:100});}catch{continue;}
    for(const message of messages.values()){
     const embed=message.embeds.find(item=>item.title?.includes('DOSTAWA MECHANIKA')),proof=[...message.attachments.values()].find(imageAttachment);
-    if(message.author?.id!==client.user?.id||!embed?.title?.includes('DOSTAWA MECHANIKA')||embed.image||!proof)continue;
-    const file=proofFile(proof),updated=EmbedBuilder.from(embed).setImage(`attachment://${file.name}`);
-    try{await message.edit({embeds:[updated],attachments:[],files:[file],allowedMentions:{parse:[]}});}catch{continue;}
+    if(message.author?.id!==client.user?.id||!embed)continue;
+    const description=(embed.description||'').replace(/\n?📊 \*\*Pozostało do limitu:\*\*[^\n]*/g,'').replace(/\n?⚠️ \*\*Dostarczono ponad stan:\*\*[^\n]*/g,'').replace(/\n?🕓 \*\*Reset limitu:\*\*[^\n]*/g,'');
+    const needsLayout=!embed.image&&proof;
+    if(!needsLayout&&description===embed.description)continue;
+    const updated=EmbedBuilder.from(embed).setDescription(description);
+    const file=needsLayout?proofFile(proof):null;
+    if(file)updated.setImage(`attachment://${file.name}`);
+    try{await message.edit({embeds:[updated],...(file?{attachments:[],files:[file]}:{}),allowedMentions:{parse:[]}});}catch{continue;}
    }
   }
  };
@@ -240,8 +245,7 @@ export function bot(db,client,svc,env){
     for(const progress of result.progress.filter(entry=>entry.bonus&&!entry.duplicate)){
       bonuses.push({targetId:progress.userId,result:await svc.run({kind:'plus',actorId:config.errorAdmin,targetId:progress.userId,reason:'Automatyczny plus za 5 dostaw mechanika.',channelId:i.channelId,requestId:`mechanik-plus:${i.id}:${progress.userId}`})});
     }
-    const weekly=result.over?`⚠️ **Dostarczono ponad stan:** ${result.over}`:`📊 **Pozostało do limitu:** ${result.remaining}`;
-    const description=[`👥 **Kto dostarczył:** ${result.deliverers.map(member=>`<@${member.id}>`).join(', ')}`,`📦 **Dostarczono:** ${result.amount}`,recipient?`👤 **Kto odebrał:** ${escapeMarkdown(recipient)}`:null,proof?'🪪 **Dowód osobisty:** załączony':null,`🎯 **Ten tydzień:** ${result.delivered} / 210`,weekly,'🕓 **Reset limitu:** niedziela, 16:00'].filter(Boolean).join('\n');
+    const description=[`👥 **Kto dostarczył:** ${result.deliverers.map(member=>`<@${member.id}>`).join(', ')}`,`📦 **Dostarczono:** ${result.amount}`,recipient?`👤 **Kto odebrał:** ${escapeMarkdown(recipient)}`:null,proof?'🪪 **Dowód osobisty:** załączony':null,`🎯 **Ten tydzień:** ${result.delivered} / 210`].filter(Boolean).join('\n');
     await i.reply({...mechanicMessage({description,proof}),allowedMentions:{users:result.deliverers.map(member=>member.id),parse:[]}});
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🔧 Plus za 5 dostaw mechanika!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw mechanika**. 🍔`})]},i.channelId).catch(err=>console.error('Nie wysłano plusa za dostawy mechanika',err.code||err.name));
     return;
