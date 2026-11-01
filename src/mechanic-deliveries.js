@@ -24,7 +24,7 @@ export function mechanicDeliveries(db,svc){
   const actor=await svc.member(actorId);
   if(!hasFirmaDc(actor))throw new UserError('Komenda /mechanik jest dostępna wyłącznie dla osób z rangą Firma DC.');
   const people=[...new Set(delivererIds.filter(Boolean))];
-  if(!people.length||people.length>3)throw new UserError('Wskaż od 1 do 3 osób dostarczających.');
+  if(!people.length||people.length>4)throw new UserError('Wskaż osobę dostarczającą i maksymalnie 3 osoby pomagające.');
   const amount=Number(quantity);
   if(!Number.isInteger(amount)||amount<1||amount>10000)throw new UserError('Podaj poprawną liczbę dostarczonych części.');
   const receiver=cleanRecipient(recipient);
