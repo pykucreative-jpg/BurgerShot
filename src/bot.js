@@ -23,6 +23,18 @@ const mechanicCommand=()=>new SlashCommandBuilder().setName('mechanik').setDescr
  .addAttachmentOption(option=>option.setName('dowod').setDescription('Opcjonalnie: zdjęcie dowodu osobistego'));
 export const isImportantLog=log=>log.status==='failed'&&!['urlop','zdejmijurlop'].includes(log.category);
 export function card(result){const e=new EmbedBuilder().setColor(result.color||0xFF3B30).setAuthor({name:'BURGER SHOT • STAFF OFFICE'}).setTitle(result.title||'🍔 BurgerShot').setThumbnail(actionThumbnail(result.art)||brandAvatar).setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
+const imageAttachment=attachment=>attachment&&(/\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name||'')||String(attachment.contentType||'').startsWith('image/'));
+const proofFile=proof=>{
+ const extension=(String(proof?.name||'').match(/\.(?:avif|gif|jpe?g|png|webp)$/i)||['.png'])[0].toLowerCase();
+ return {attachment:proof.url,name:`dowod-osobisty${extension}`};
+};
+export const mechanicMessage=({description,proof})=>{
+ const embed=card({title:'🔧 DOSTAWA MECHANIKA',description});
+ const file=proof&&imageAttachment(proof)?proofFile(proof):null;
+ // Obraz należący do embedu Discord pokazuje pod treścią, zamiast nad kartą.
+ if(file)embed.setImage(`attachment://${file.name}`);
+ return {embeds:[embed],files:file?[file]:[]};
+};
 export const commandPreviews=()=>[
  ['zatrudnij','🍔 Witamy w BurgerShot!','@Pracownik dołącza do naszego zespołu. Miło Cię widzieć! 🍟'],['plus','🌟 Dobra robota!','@Pracownik, dziękujemy za zaangażowanie! 🤍'],['minus','⚠️ Ostrzeżenie pracownicze','@Pracownik otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.'],['awans','✨ Pora na kolejny krok!','@Pracownik awansuje. Gratulujemy! 🍔'],['degrad','📋 Zmiana stanowiska','@Pracownik przechodzi na niższe stanowisko.'],['zwolnij','📋 Zakończenie współpracy','Jan Kowalski został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.'],['urlop','🌴 Czas na odpoczynek!','@Pracownik, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️'],['zdejmijurlop','🌸 Witamy z powrotem!','@Pracownik, Twój urlop został zakończony ręcznie. Zapraszamy do pracy! 🍟'],['kolo','🎡 Losowanie nagrody za kursy','@Pracownik zakręca kołem…\n🎁 Wylosowano: Aparat'],['info','📚 Kursy w tym tygodniu','Łącznie — 55\n\nPoniedziałek — 55\nWtorek — 0\nŚroda — 0'],['ranking','🏆 Ranking kursów','1. @Pracownik — 21 kursów\n2. @Pracownik — 10 kursów'],['wyplac','💰 Wypłata nagród','Wybrano nagrodę do wypłaty dla pracownika.'],['reset','↺ Kursy wyzerowane','Wyzerowano kursy. Dostępne losowania i historia nagród pozostały bez zmian.'],['nagrody','💰 Nagrody BurgerShot','Lista nagród oczekujących na wypłatę.'],['lista','🍔 Lista medyków','🟢 01. Alejandro Restrepo · 0 / 5'],['zestawy','🍟 Wydano zestawy','Medyk: Alejandro Restrepo\nWydano: 1 zestaw\nDzisiaj: 1 / 5'],['dostawy','🍔 Dostawa medyczna','Kto dostarczył: @Zarząd\nKto pomógł: @Pracownik\nKto odebrał: Alejandro Restrepo\nData: 13.10.2026, 18:42'],['mechanik','🔧 Dostawa mechanika','Kto dostarczył: @Pracownik\nDostarczono: 12\nPozostało: 198 / 210']
 ].map(([command,title,description])=>card({title:`/${command} • ${title}`,description:`**Podgląd powiadomienia z komendy /${command}**\n\n${description}`,art:['plus','minus','urlop','zwolnij'].includes(command)?command:undefined}));
@@ -58,6 +70,21 @@ export function bot(db,client,svc,env){
  const bingoTickets=bingo(db,client,svc,card);
  const medicSetManager=medicSets(db,client,svc,card);
  const mechanicDelivery=mechanicDeliveries(db,svc);
+ const repairMechanicProofLayouts=async()=>{
+  const ids=[config.deliveriesChannel,config.medicSetsChannel,...Object.values(config.actionChannels),config.logs].filter(Boolean);
+  for(const id of [...new Set(ids)]){
+   let channel;
+   try{channel=await client.channels.fetch(id);}catch{continue;}
+   if(!channel?.isTextBased?.()||!channel.messages?.fetch)continue;
+   const messages=await channel.messages.fetch({limit:50});
+   for(const message of messages.values()){
+    const embed=message.embeds[0],proof=[...message.attachments.values()].find(imageAttachment);
+    if(message.author?.id!==client.user?.id||!embed?.title?.includes('DOSTAWA MECHANIKA')||embed.image||!proof)continue;
+    const file=proofFile(proof),updated=EmbedBuilder.from(embed).setImage(`attachment://${file.name}`);
+    await message.edit({embeds:[updated],attachments:[],files:[file],allowedMentions:{parse:[]}});
+   }
+  }
+ };
  const rewardMessage=async(cutoff,page,title)=>{
    const report=await rewardReport(db,cutoff,page);
    const components=report.entries.length?[new ActionRowBuilder().addComponents(
@@ -212,7 +239,7 @@ export function bot(db,client,svc,env){
     }
     const weekly=result.over?`⚠️ **Dostarczono ponad stan:** ${result.over}`:`📊 **Pozostało do limitu:** ${result.remaining}`;
     const description=[`👥 **Kto dostarczył:** ${result.deliverers.map(member=>`<@${member.id}>`).join(', ')}`,`📦 **Dostarczono:** ${result.amount}`,recipient?`👤 **Kto odebrał:** ${escapeMarkdown(recipient)}`:null,proof?'🪪 **Dowód osobisty:** załączony':null,`🎯 **Ten tydzień:** ${result.delivered} / 210`,weekly,'🕓 **Reset limitu:** niedziela, 16:00'].filter(Boolean).join('\n');
-    await i.reply({embeds:[card({title:'🔧 DOSTAWA MECHANIKA',description})],files:proof?[{attachment:proof.url,name:proof.name||'dowod-osobisty'}]:[],allowedMentions:{users:result.deliverers.map(member=>member.id),parse:[]}});
+    await i.reply({...mechanicMessage({description,proof}),allowedMentions:{users:result.deliverers.map(member=>member.id),parse:[]}});
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🔧 Plus za 5 dostaw mechanika!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw mechanika**. 🍔`})]},i.channelId).catch(err=>console.error('Nie wysłano plusa za dostawy mechanika',err.code||err.name));
     return;
    }
@@ -255,7 +282,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
