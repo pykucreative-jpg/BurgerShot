@@ -86,7 +86,7 @@ export function medicSets(db,client,svc,card){
   }));
   await panel();return result;
  }
- async function delivery(actorId,driverId,helperIds,name,requestId){
+ async function companyDelivery(actorId,driverId,helperIds,requestId){
   const actor=await svc.member(actorId);
   if(!canRecordDelivery(actor))throw new UserError('Dostawy może wpisywać wyłącznie Zarząd albo osoba z rangą Firma DC.');
   const uniqueHelpers=[...new Set(helperIds.filter(Boolean))];
@@ -94,18 +94,21 @@ export function medicSets(db,client,svc,card){
   if(!canDriveDelivery(driver))throw new UserError('Osoba dostarczająca musi mieć rangę Zarząd albo Firma DC.');
   const trackedHelpers=helpers.filter(helper=>helper.manageable);
   if(trackedHelpers.some(helper=>!helper.roles.cache.has(config.employee)))throw new UserError('Każda osoba pomagająca, której bot może nadać rangę, musi mieć rangę Firma DC.');
-  const medic=(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
-  if(!medic)throw new UserError('Wybierz osobę z listy medyków.');
   const tracked=[...(driver.manageable&&driver.roles.cache.has(config.employee)?[driver]:[]),...trackedHelpers]
    .filter((person,index,all)=>all.findIndex(other=>other.id===person.id)===index);
   const progress=await Promise.all(tracked.map(person=>svc.recordDelivery(person.id,requestId)));
-  return {driver,helpers,medic,progress,bonusActorId:driver.roles.cache.has(config.staff)?driver.id:config.errorAdmin,mentionsOnly:helpers.filter(helper=>!helper.manageable).map(helper=>helper.id)};
+  return {driver,helpers,progress,bonusActorId:driver.roles.cache.has(config.staff)?driver.id:config.errorAdmin,mentionsOnly:helpers.filter(helper=>!helper.manageable).map(helper=>helper.id)};
+ }
+ async function delivery(actorId,driverId,helperIds,name,requestId){
+  const medic=(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
+  if(!medic)throw new UserError('Wybierz osobę z listy medyków.');
+  return {...await companyDelivery(actorId,driverId,helperIds,requestId),medic};
  }
  async function autocomplete(i){
   const query=i.options.getFocused().trim();
   const options=(await rows(query)).slice(0,25).map(medic=>({name:`${medic.full_name} — ${medic.issued}/5 dzisiaj`.slice(0,100),value:medic.full_name}));
   await i.respond(options);
  }
- return {panel,manage,issue,delivery,autocomplete};
+ return {panel,manage,issue,delivery,companyDelivery,autocomplete};
 }
 
