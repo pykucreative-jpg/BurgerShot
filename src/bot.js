@@ -71,14 +71,16 @@ export function bot(db,client,svc,env){
  const medicSetManager=medicSets(db,client,svc,card);
  const mechanicDelivery=mechanicDeliveries(db,svc);
  const repairMechanicProofLayouts=async()=>{
-  const ids=[config.deliveriesChannel,config.medicSetsChannel,...Object.values(config.actionChannels),config.logs].filter(Boolean);
+  const guild=await svc.guild();
+  const allChannels=await guild.channels.fetch();
+  const ids=[...allChannels.values()].filter(channel=>channel?.isTextBased?.()&&channel.messages?.fetch).map(channel=>channel.id);
   for(const id of [...new Set(ids)]){
    let channel;
    try{channel=await client.channels.fetch(id);}catch{continue;}
    if(!channel?.isTextBased?.()||!channel.messages?.fetch)continue;
-   const messages=await channel.messages.fetch({limit:50});
+   const messages=await channel.messages.fetch({limit:100});
    for(const message of messages.values()){
-    const embed=message.embeds[0],proof=[...message.attachments.values()].find(imageAttachment);
+    const embed=message.embeds.find(item=>item.title?.includes('DOSTAWA MECHANIKA')),proof=[...message.attachments.values()].find(imageAttachment);
     if(message.author?.id!==client.user?.id||!embed?.title?.includes('DOSTAWA MECHANIKA')||embed.image||!proof)continue;
     const file=proofFile(proof),updated=EmbedBuilder.from(embed).setImage(`attachment://${file.name}`);
     await message.edit({embeds:[updated],attachments:[],files:[file],allowedMentions:{parse:[]}});
