@@ -84,12 +84,15 @@ export function bot(db,client,svc,env){
     const embed=message.embeds.find(item=>item.title?.includes('DOSTAWA MECHANIKA')),proof=[...message.attachments.values()].find(imageAttachment);
     if(message.author?.id!==client.user?.id||!embed)continue;
     const description=(embed.description||'').replace(/\n?📊 \*\*Pozostało do limitu:\*\*[^\n]*/g,'').replace(/\n?⚠️ \*\*Dostarczono ponad stan:\*\*[^\n]*/g,'').replace(/\n?🕓 \*\*Reset limitu:\*\*[^\n]*/g,'');
-    const needsLayout=!embed.image&&proof;
-    if(!needsLayout&&description===embed.description)continue;
-    const updated=EmbedBuilder.from(embed).setDescription(description);
-    const file=needsLayout?proofFile(proof):null;
-    if(file)updated.setImage(`attachment://${file.name}`);
-    try{await message.edit({embeds:[updated],...(file?{attachments:[],files:[file]}:{}),allowedMentions:{parse:[]}});}catch{continue;}
+    const imageFiles=[...message.attachments.values()].filter(imageAttachment);
+    const needsReplacement=(!embed.image&&proof)||(embed.image&&imageFiles.length>1);
+    if(needsReplacement){
+     const source={url:embed.image?.url||proof.url,name:proof?.name,contentType:proof?.contentType},file=proofFile(source),updated=EmbedBuilder.from(embed).setDescription(description).setImage(`attachment://${file.name}`);
+     try{await channel.send({embeds:[updated],files:[file],allowedMentions:{users:[...message.mentions.users.keys()],parse:[]}});await message.delete();}catch{continue;}
+     continue;
+    }
+    if(description===embed.description)continue;
+    try{await message.edit({embeds:[EmbedBuilder.from(embed).setDescription(description)],allowedMentions:{parse:[]}});}catch{continue;}
    }
   }
  };
