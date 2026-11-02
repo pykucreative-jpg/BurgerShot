@@ -4,6 +4,9 @@ import {UserError,text} from './domain.js';
 
 const dailyWindow=()=>{const start=DateTime.now().setZone('Europe/Warsaw').startOf('day');return [start.toUTC().toJSDate(),start.plus({days:1}).toUTC().toJSDate()];};
 const cleanName=value=>text(value,80).replace(/\s+/g,' ').trim();
+const lookupName=value=>cleanName(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+export const fridgeRecipient='Lodówka';
+export const isFridgeRecipient=value=>lookupName(value)==='lodowka';
 export const setRemaining=issued=>Math.max(0,5-Number(issued||0));
 export const canRecordDelivery=member=>Boolean(member?.roles?.cache?.has(config.staff)||member?.roles?.cache?.has(config.employee));
 export const canDriveDelivery=canRecordDelivery;
@@ -100,13 +103,15 @@ export function medicSets(db,client,svc,card){
   return {driver,helpers,progress,bonusActorId:driver.roles.cache.has(config.staff)?driver.id:config.errorAdmin,mentionsOnly:helpers.filter(helper=>!helper.manageable).map(helper=>helper.id)};
  }
  async function delivery(actorId,driverId,helperIds,name,requestId){
-  const medic=(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
-  if(!medic)throw new UserError('Wybierz osobę z listy medyków.');
-  return {...await companyDelivery(actorId,driverId,helperIds,requestId),medic};
+  const recipient=isFridgeRecipient(name)?{id:null,full_name:fridgeRecipient}:(await db.q('SELECT id,full_name FROM medics WHERE full_name=$1',[cleanName(name)])).rows[0];
+  if(!recipient)throw new UserError('Wybierz medyka z listy albo pozycję Lodówka.');
+  return {...await companyDelivery(actorId,driverId,helperIds,requestId),medic:recipient};
  }
  async function autocomplete(i){
   const query=i.options.getFocused().trim();
-  const options=(await rows(query)).slice(0,25).map(medic=>({name:`${medic.full_name} — ${medic.issued}/5 dzisiaj`.slice(0,100),value:medic.full_name}));
+  const normalized=query.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const fridge=!normalized||'lodowka'.includes(normalized)?[{name:'🧊 Lodówka',value:fridgeRecipient}]:[];
+  const options=[...fridge,...(await rows(query)).slice(0,25-fridge.length).map(medic=>({name:`${medic.full_name} — ${medic.issued}/5 dzisiaj`.slice(0,100),value:medic.full_name}))];
   await i.respond(options);
  }
  return {panel,manage,issue,delivery,companyDelivery,autocomplete};
