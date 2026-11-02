@@ -22,7 +22,7 @@ test('tydzień mechanika resetuje się w niedzielę o 16:00 czasu polskiego',()=
 test('dostawa mechanika sumuje ilość tygodnia i nalicza postęp każdej osobie',async t=>{
  const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
  const db={q:(sql,params=[])=>pg.query(sql,params),lock:async(_key,fn)=>fn()};
- const member=id=>({id,roles:{cache:{has:role=>role===config.employee}}});
+ const member=(id,manageable=true)=>({id,manageable,roles:{cache:{has:role=>role===config.employee}}});
  const calls=[];
  const svc={member:async id=>member(id),recordDelivery:async(id,requestId)=>{calls.push([id,requestId]);return {userId:id,bonus:false,duplicate:false};}};
  const mechanic=mechanicDeliveries(db,svc);
@@ -30,5 +30,14 @@ test('dostawa mechanika sumuje ilość tygodnia i nalicza postęp każdej osobie
  assert.deepEqual(calls,[['one','mechanic-1'],['two','mechanic-1']]);assert.equal(first.delivered,200);assert.equal(first.remaining,10);assert.equal(first.over,0);
  const second=await mechanic.record({actorId:'actor',delivererIds:['one'],quantity:25,proofUrl:'https://example.test/id.png',requestId:'mechanic-2'});
  assert.equal(second.delivered,225);assert.equal(second.remaining,0);assert.equal(second.over,15);
+});
+
+test('osoba stojąca wyżej od bota jest pokazana przy mechaniku bez nadawania rangi',async t=>{
+ const pg=new PGlite();t.after(()=>pg.close());await pg.exec(await readFile(new URL('../src/schema.sql',import.meta.url),'utf8'));
+ const db={q:(sql,params=[])=>pg.query(sql,params),lock:async(_key,fn)=>fn()};
+ const member=(id,manageable=true)=>({id,manageable,roles:{cache:{has:role=>role===config.employee}}});
+ const calls=[],svc={member:async id=>id==='wyzej'?member(id,false):member(id),recordDelivery:async(id,requestId)=>{calls.push([id,requestId]);return {userId:id,bonus:false,duplicate:false};}};
+ const result=await mechanicDeliveries(db,svc).record({actorId:'actor',delivererIds:['firma','wyzej'],quantity:1,recipient:'Odbiorca',requestId:'mechanic-higher'});
+ assert.deepEqual(result.deliverers.map(person=>person.id),['firma','wyzej']);assert.deepEqual(calls,[['firma','mechanic-higher']]);
 });
 
