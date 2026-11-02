@@ -37,8 +37,10 @@ export function mechanicDeliveries(db,svc){
     return {...mechanicLimitState(total),amount:Number(existing.quantity),deliverers:[],progress:[],duplicate:true};
    }
    const deliverers=await Promise.all(people.map(id=>svc.member(id)));
-   if(deliverers.some(member=>!hasFirmaDc(member)))throw new UserError('Każda osoba dostarczająca musi mieć rangę Firma DC.');
-   const progress=await Promise.all(deliverers.map(member=>svc.recordDelivery(member.id,requestId)));
+   // Osoby stojące wyżej od bota mogą być wpisane do dostawy, ale nie dostają rang ani postępu.
+   const tracked=deliverers.filter(member=>member.manageable);
+   if(tracked.some(member=>!hasFirmaDc(member)))throw new UserError('Każda osoba, której bot może nadać rangę, musi mieć rangę Firma DC.');
+   const progress=await Promise.all(tracked.map(member=>svc.recordDelivery(member.id,requestId)));
    await db.q('INSERT INTO mechanic_deliveries(request_id,delivered_by,created_by,recipient,proof_url,quantity) VALUES($1,$2,$3,$4,$5,$6)',[requestId,JSON.stringify(deliverers.map(member=>member.id)),actor.id,receiver,proofUrl||null,amount]);
    const total=(await db.q('SELECT COALESCE(SUM(quantity),0)::int AS total FROM mechanic_deliveries WHERE created_at >= $1 AND created_at < $2',[start,end])).rows[0].total;
    return {...mechanicLimitState(total),amount,deliverers,progress,recipient:receiver,duplicate:false};
