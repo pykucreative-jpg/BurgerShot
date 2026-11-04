@@ -21,17 +21,17 @@ export function badgeFor(member){
  const rank=[...badgeRanks].reverse().find(r=>member.roles.cache.has(r.id));
  if(!rank)throw new UserError('Nie znaleziono skonfigurowanego stanowiska. Skontaktuj się z zarządem.');
  const clean=member.displayName.replace(/\[[^\]]*\]/g,' ').trim();
- const first=clean.split(/\s+/)[0];
- if(!first||! /^[\p{L}][\p{L}\p{M}'’-]*$/u.test(first))throw new UserError('Ustaw pseudonim z imieniem na początku, np. Sonic Savage.');
- const brand=rank.code==='R'?'Burger Shot':'BURGER SHOT';
- return {weekly:member.roles.cache.has('1536106262859616347')?`/opis ~p~ 🍔 ~r~BURGER SHOT~r~ 🍔 ~n~ ~s~ [${first}] ~n~ ~HC_179~ [Pracownik Tygodnia]`:null,name:first,rank:rank.name,description:`/opis ~p~ 🍔 ~r~${brand}~r~ 🍔 ~n~ ~s~ [${first}] ~n~ ${rank.color} [${rank.label}]`,nickname:`/zmiennick [${rank.code}] ${first}`};
+ const parts=clean.split(/\s+/).filter(Boolean),[first,last]=parts;
+ if(!first||!last||![first,last].every(value=>/^[\p{L}][\p{L}\p{M}'’-]*$/u.test(value)))throw new UserError('Ustaw pseudonim z imieniem i nazwiskiem na początku, np. Sonic Savage.');
+ const name=`${first} ${last}`,prefix='~h~ 🍟 ~y~Burger ~y~Shot~r~ 🍟 ~n~ ~s~';
+ return {weekly:member.roles.cache.has('1536106262859616347')?`/opis ${prefix} [${name}] ~n~ ~HC_179~ [Pracownik Tygodnia]`:null,name,rank:rank.name,description:`/opis ${prefix} [${name}] ~n~ ${rank.color} [${rank.label}]`,nickname:`/zmiennick [${rank.code}] ${first}`};
 }
 export function badges(db,client,svc,card){
  async function handle(i){
   await i.deferReply({flags:MessageFlags.Ephemeral});
   try{
    const result=badgeFor(await svc.member(i.user.id));
-   await i.editReply({embeds:[card({title:'🪪 Twoja plakietka • BurgerShot',description:`👤 **Imię:** ${escapeMarkdown(result.name)}\n🍟 **Stanowisko:** ${result.rank}`,fields:{...(result.weekly?{'🏆 Pracownik Tygodnia — dodatkowa plakietka':'Masz dodatkową plakietkę do założenia!\n```text\n'+result.weekly+'\n```'}:{}),'📋 Opis plakietki — skopiuj do gry':'```text\n'+result.description+'\n```','✏️ Zmiana nicku — skopiuj do gry':'```text\n'+result.nickname+'\n```'}})],allowedMentions:{parse:[]}});
+   await i.editReply({embeds:[card({title:'🪪 Twoja plakietka • BurgerShot',description:`👤 **Imię i nazwisko:** ${escapeMarkdown(result.name)}\n🍟 **Stanowisko:** ${result.rank}`,fields:{...(result.weekly?{'🏆 Pracownik Tygodnia — dodatkowa plakietka':'Masz dodatkową plakietkę do założenia!\n```text\n'+result.weekly+'\n```'}:{}),'📋 Opis plakietki — skopiuj do gry':'```text\n'+result.description+'\n```','✏️ Zmiana nicku — skopiuj do gry':'```text\n'+result.nickname+'\n```'}})],allowedMentions:{parse:[]}});
   }catch(err){await i.editReply({embeds:[card({title:'🪪 Generator plakietek',description:err instanceof UserError?err.message:'Nie udało się pobrać stanowiska. Spróbuj ponownie.'})]});}
  }
  async function panel(){
