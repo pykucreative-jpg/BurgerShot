@@ -4,9 +4,9 @@ import {badgeFor,badgeRanks,badges} from '../src/badges.js';
 import {config} from '../src/config.js';
 import {card} from '../src/bot.js';
 const member=(ids,name='[S.P] Sonic Savage [urlop]')=>({displayName:name,roles:{cache:new Map(ids.map(id=>[id,{}]))}});
-test('wszystkie stanowiska i najwyższa posiadana ranga, pierwsze imię',()=>{
+test('wszystkie stanowiska i najwyższa posiadana ranga, imię i nazwisko',()=>{
  assert.equal(badgeRanks.length,11);
- for(const r of badgeRanks){const result=badgeFor(member([config.employee,r.id]));assert.equal(result.name,'Sonic');assert.equal(result.nickname,`/zmiennick [${r.code}] Sonic`);assert.ok(result.description.endsWith(`${r.color} [${r.label}]`));}
+ for(const r of badgeRanks){const result=badgeFor(member([config.employee,r.id]));assert.equal(result.name,'Sonic Savage');assert.equal(result.nickname,`/zmiennick [${r.code}] Sonic`);assert.match(result.description,/~h~ 🍟 ~y~Burger ~y~Shot~r~ 🍟/);assert.match(result.description,/\[Sonic Savage\]/);assert.ok(result.description.endsWith(`${r.color} [${r.label}]`));}
  assert.equal(badgeFor(member([config.employee,...badgeRanks.map(r=>r.id)])).rank,'Szefowa');
 });
 test('brak Firma Dc, brak stanowiska i niedozwolony tekst nie generują plakietki',()=>{
@@ -26,6 +26,6 @@ test('generator ma jeden panel i prywatny wynik dla osoby klikającej',async()=>
 
 test('Pracownik Tygodnia dostaje dodatkowy opis, zachowując swoją rangę i nick',()=>{
  const ids=[config.employee,badgeRanks[3].id];const normal=badgeFor(member(ids));assert.equal(normal.weekly,null);
- const weekly=badgeFor(member([...ids,'1536106262859616347']));assert.equal(weekly.rank,normal.rank);assert.equal(weekly.nickname,normal.nickname);assert.equal(weekly.description,normal.description);assert.match(weekly.weekly,/~HC_179~ \[Pracownik Tygodnia\]/);assert.match(weekly.weekly,/\[Sonic\]/);
+ const weekly=badgeFor(member([...ids,'1536106262859616347']));assert.equal(weekly.rank,normal.rank);assert.equal(weekly.nickname,normal.nickname);assert.equal(weekly.description,normal.description);assert.match(weekly.weekly,/~HC_179~ \[Pracownik Tygodnia\]/);assert.match(weekly.weekly,/\[Sonic Savage\]/);
 });
 
