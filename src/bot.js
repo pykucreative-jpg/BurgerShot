@@ -79,6 +79,14 @@ export function bot(db,client,svc,env){
  const bingoTickets=bingo(db,client,svc,card);
  const medicSetManager=medicSets(db,client,svc,card);
  const mechanicDelivery=mechanicDeliveries(db,svc);
+ const sendOneOffChatMessage=async()=>{
+  const marker='one_off_chat_message_2026_11_08';
+  if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return false;
+  const channel=await client.channels.fetch('1502336289339478138');
+  await channel.send({content:'😔 Przestańcie mnie obrażać zaprogramował mnie mój właściciel ja też mam uczucia jebać was w imię zasad skur... 🍔🤖💔',allowedMentions:{parse:[]}});
+  await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
+  return true;
+ };
  const repairMechanicProofLayouts=async()=>{
   const guild=await svc.guild();
   const allChannels=await guild.channels.fetch();
@@ -317,7 +325,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,repairMechanicProofLayouts,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
