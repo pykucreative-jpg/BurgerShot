@@ -98,25 +98,6 @@ export async function ingestDismissalLog(db,message,guildId){
  if(events.length!==1)return false;
  return db.transaction(async tx=>Boolean((await tx.query("INSERT INTO imported_webhook_logs(message_id,webhook_id,event,status) VALUES($1,$2,$3,'pending') ON CONFLICT DO NOTHING RETURNING message_id",[message.id,String(message.webhookId||message.applicationId||message.author?.id||'channel-log'),JSON.stringify(events[0])])).rows.length));
 }
-export async function recoverDismissalLogsSince(db,client,guildId,since){
- const start=new Date(since).getTime();
- if(Number.isNaN(start))throw new Error('Nieprawidłowy czas odzyskania zwolnień.');
- const channel=await client.channels.fetch(dismissalSourceChannel);
- if(!channel?.messages?.fetch)throw new Error('Kanał źródłowy zwolnień nie jest dostępny.');
- let before,inserted=0;
- // Limit chroni przed skanowaniem całej historii kanału; dla kanału zwolnień
- // 2000 ostatnich wpisów to duży zapas względem okresu odzyskania.
- for(let page=0;page<20;page++){
-  const messages=await channel.messages.fetch({limit:100,...(before?{before}:{})});
-  if(!messages.size)break;
-  const values=[...messages.values()];
-  for(const message of values)if(message.createdTimestamp>=start&&await ingestDismissalLog(db,message,guildId))inserted++;
-  const oldest=values.reduce((candidate,message)=>message.createdTimestamp<candidate.createdTimestamp?message:candidate);
-  if(oldest.createdTimestamp<start)break;
-  before=oldest.id;
- }
- return inserted;
-}
 export async function trackActivityLog(message,guildId,svc){
  if(message.guildId!==guildId||message.channelId!==activitySourceChannel)return false;
  const events=(message.embeds||[]).map(embed=>parseActivityLog(embed,message)).filter(Boolean);
