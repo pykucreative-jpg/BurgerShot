@@ -156,9 +156,10 @@ export function bot(db,client,svc,env){
         const channel=await client.channels.fetch(n.channel_id);
         const payload=n.reward_cutoff?await rewardMessage(n.reward_cutoff,n.reward_page,n.title):{embeds:[card({title:n.title,description:n.body,art:n.art})],files:actionFiles(n.art),components:[]};
         const isErrorChannel=n.channel_id===config.logs&&/błąd|nie wykonano|nie zapisano/i.test(n.title||'');
-        const mentions=[...new Set([n.role_id?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null,isErrorChannel?`<@${config.errorAdmin}>`:null].filter(Boolean))];
+        const isCourseReminder=n.channel_id===config.courseChannel&&n.title==='🍔 EKIPA BURGERSHOT — CZAS NA KURSY!';
+        const mentions=[...new Set([n.role_id&&!isCourseReminder?`<@&${n.role_id}>`:null,n.user_id?`<@${n.user_id}>`:null,isErrorChannel?`<@${config.errorAdmin}>`:null].filter(Boolean))];
         const users=[...new Set([...(n.user_id?[n.user_id]:[]),...(isErrorChannel?[config.errorAdmin]:[])])];
-        await channel.send({...payload,content:mentions.join(' ')||undefined,allowedMentions:{roles:n.role_id?[n.role_id]:[],users,parse:[]}});
+        await channel.send({...payload,content:mentions.join(' ')||undefined,allowedMentions:{roles:n.role_id&&!isCourseReminder?[n.role_id]:[],users,parse:[]}});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);if([50001,10003].includes(Number(err.code)))await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);}
     }
