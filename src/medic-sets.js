@@ -10,6 +10,7 @@ export const isFridgeRecipient=value=>lookupName(value)==='lodowka';
 export const setRemaining=issued=>Math.max(0,5-Number(issued||0));
 export const canRecordDelivery=member=>Boolean(member?.roles?.cache?.has(config.staff)||member?.roles?.cache?.has(config.employee));
 export const canDriveDelivery=canRecordDelivery;
+export const canManageMedicList=actorId=>config.medicListManagers.includes(String(actorId));
 const initialMedics=['Alejandro Restrepo','Charlotte Lyons','Cioppini Bartieu','Damon Alfonso','George Hyattmore','Gorgio Wilson','Haruto Takanama','Ivy Mendez','Jack Kimono','Jessica Valentino','Kevin Maverick','Kim Frost','Leon Vidal','Lucas Valentino','Madison Black','Madison Hyattmore','Martino Skurwisinio','Michael Frost','Owen Evans','Paulo Martini','Rosalie Vitalyi','Santiago Mendez','Shyshko Yad','Theodor Rossi','Tony Kimono','Vivienne Castillo'];
 
 export function medicSets(db,client,svc,card){
@@ -49,7 +50,7 @@ export function medicSets(db,client,svc,card){
   });
  }
  async function manage(actorId,action,name,newName){
-  await svc.authorize(actorId);
+  if(!canManageMedicList(actorId))await svc.authorize(actorId);
   if(action==='pokaz'){await panel();return {message:'Lista medyków została odświeżona.'};}
   const fullName=cleanName(name);
   if(action==='dodaj'){
