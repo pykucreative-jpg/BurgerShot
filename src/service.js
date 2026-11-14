@@ -284,11 +284,11 @@ export function service(db, client, env) {
           return {art:'zwolnij',title:'📋 Zakończenie współpracy',description:`${e.ic_name} został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.`,fields:{'💬 Powód':reason,'👤 Decyzję podjął/podjęła':`<@${actor.id}>`}};
         }
         if(kind==='urlop') {
-          if(!endsAt||new Date(endsAt)<=new Date()) throw new UserError('Koniec urlopu musi wypadać w przyszłości.');
+          if(endsAt&&new Date(endsAt)<=new Date()) throw new UserError('Koniec urlopu musi wypadać w przyszłości.');
           if((await db.q("SELECT id FROM leaves WHERE user_id=$1 AND status IN ('pending','scheduled','active','starting','ending')",[m.id])).rowCount) throw new UserError('Ta osoba ma już urlop lub oczekujący wniosek.');
           const l=(await db.q(`INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id,approved_by,approved_by_name) VALUES($1,$2,now(),$3,'scheduled',$4,$5,$6) RETURNING *`,[m.id,e.ic_name,endsAt,channelId,actor.id,actor.name])).rows[0];
           steps.push('Zapisano urlop'); const activation=await activate(l,m,steps);
-          return {art:'urlop',title:'🌴 Czas na odpoczynek!',description:activation?.informational?`<@${m.id}>, Twój urlop został zapisany w systemie. Discord nie pozwala botowi zmienić Twojej rangi ani pseudonimu.`:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':formatDate(endsAt),'👤 Zatwierdził(a)':`<@${actor.id}>`}};
+          return {art:'urlop',title:'🌴 Czas na odpoczynek!',description:activation?.informational?`<@${m.id}>, Twój urlop został zapisany w systemie. Discord nie pozwala botowi zmienić Twojej rangi ani pseudonimu.`:`<@${m.id}>, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️`,fields:{'📅 Do kiedy':endsAt?formatDate(endsAt):'Bezterminowo','👤 Zatwierdził(a)':`<@${actor.id}>`}};
         }
         if(kind==='zdejmijurlop') {
           const l=(await db.q("SELECT * FROM leaves WHERE user_id=$1 AND status IN ('active','scheduled','starting','ending')",[m.id])).rows[0];
