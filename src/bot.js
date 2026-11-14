@@ -44,6 +44,8 @@ const deliveryMessage=({title,description,proof})=>{
  return {embeds:[embed],files:file?[file]:[]};
 };
 export const mechanicMessage=({description,proof})=>deliveryMessage({title:'🔧 DOSTAWA MECHANIKA',description,proof});
+export const leaveTemplate='🌴 WZÓR URLOPU\n\nKto: imię i nazwisko\nOd kiedy: data i miesiąc\nDo kiedy: data i miesiąc\nPowód:';
+export const isLeaveTemplateNotification=notification=>notification.channel_id===config.leaveNoticeChannel&&['🌴 Urlop pracownika','🌴 Czas na odpoczynek!'].includes(notification.title);
 export const commandPreviews=()=>[
  ['zatrudnij','🍔 Witamy w BurgerShot!','@Pracownik dołącza do naszego zespołu. Miło Cię widzieć! 🍟'],['plus','🌟 Dobra robota!','@Pracownik, dziękujemy za zaangażowanie! 🤍'],['minus','⚠️ Ostrzeżenie pracownicze','@Pracownik otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.'],['awans','✨ Pora na kolejny krok!','@Pracownik awansuje. Gratulujemy! 🍔'],['degrad','📋 Zmiana stanowiska','@Pracownik przechodzi na niższe stanowisko.'],['zwolnij','📋 Zakończenie współpracy','Jan Kowalski został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.'],['urlop','🌴 Czas na odpoczynek!','@Pracownik, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️'],['zdejmijurlop','🌸 Witamy z powrotem!','@Pracownik, Twój urlop został zakończony ręcznie. Zapraszamy do pracy! 🍟'],['kolo','🎡 Losowanie nagrody za kursy','@Pracownik zakręca kołem…\n🎁 Wylosowano: Aparat'],['info','📚 Kursy w tym tygodniu','Łącznie — 55\n\nPoniedziałek — 55\nWtorek — 0\nŚroda — 0'],['ranking','🏆 Ranking kursów','1. @Pracownik — 21 kursów\n2. @Pracownik — 10 kursów'],['wyplac','💰 Wypłata nagród','Wybrano nagrodę do wypłaty dla pracownika.'],['reset','↺ Kursy wyzerowane','Wyzerowano kursy. Dostępne losowania i historia nagród pozostały bez zmian.'],['nagrody','💰 Nagrody BurgerShot','Lista nagród oczekujących na wypłatę.'],['lista','🍔 Lista medyków','🟢 01. Alejandro Restrepo · 0 / 5'],['zestawy','🍟 Wydano zestawy','Medyk: Alejandro Restrepo\nWydano: 1 zestaw\nDzisiaj: 1 / 5'],['dostawy','🍔 Dostawa medyczna','Kto dostarczył: @Zarząd\nKto pomógł: @Pracownik\nKto odebrał: Alejandro Restrepo\nData: 13.10.2026, 18:42'],['mechanik','🔧 Dostawa mechanika','Kto dostarczył: @Pracownik\nDostarczono: 12\nPozostało: 198 / 210']
 ].map(([command,title,description])=>card({title:`/${command} • ${title}`,description:`**Podgląd powiadomienia z komendy /${command}**\n\n${description}`,art:['plus','minus','urlop','zwolnij'].includes(command)?command:undefined}));
@@ -161,6 +163,7 @@ export function bot(db,client,svc,env){
         const users=[...new Set([...(n.user_id?[n.user_id]:[]),...(isErrorChannel?[config.errorAdmin]:[])])];
         await channel.send({...payload,content:mentions.join(' ')||undefined,allowedMentions:{roles:n.role_id&&!isCourseReminder?[n.role_id]:[],users,parse:[]}});
         await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);
+        if(isLeaveTemplateNotification(n))await channel.send({content:leaveTemplate,allowedMentions:{parse:[]}}).catch(err=>console.error('Nie wysłano wzoru urlopu',err.code||err.name));
       } catch(err) {console.error('Nie wysłano powiadomienia',n.id,err.code||err.name);if([50001,10003].includes(Number(err.code)))await db.q('UPDATE notifications SET delivered=true WHERE id=$1',[n.id]);}
     }
   });
