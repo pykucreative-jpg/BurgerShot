@@ -95,7 +95,7 @@ export function web(db,svc,discord,env,ready){
   const {kind,targetId,reason,icName,endsAt,requestId}=req.body;
   if(!Object.hasOwn(labels,kind)||!/^\d{17,20}$/.test(targetId||'')||! /^[a-f0-9-]{36}$/i.test(requestId||''))throw new UserError('Wybierz poprawne działanie i osobę.');
   const channelId=config.actionChannels[kind]||(['urlop','zdejmijurlop'].includes(kind)?'1502336468016828567':config.logs);
-  const result=await svc.run({kind,actorId:req.session.user.id,targetId,reason,icName,endsAt:kind==='urlop'?parseLeaveDate(endsAt,{end:true}):undefined,channelId,requestId:'web:'+requestId});
+  const result=await svc.run({kind,actorId:req.session.user.id,targetId,reason,icName,endsAt:kind==='urlop'&&endsAt?parseLeaveDate(endsAt,{end:true}):undefined,channelId,requestId:'web:'+requestId});
   await svc.notify(channelId,targetId,result.title,[result.description,...Object.entries(result.fields||{}).map(([k,v])=>`**${k}:** ${v}`)].filter(Boolean).join('\n'));
   res.json({ok:true,title:result.title});
  });
@@ -104,3 +104,4 @@ export function web(db,svc,discord,env,ready){
  app.use((err,req,res,next)=>{console.error('Panel WWW',err.code||err.name);res.status(err instanceof UserError?400:500).json({error:err instanceof UserError?err.message:'Nie udało się wykonać operacji. Sprawdź historię przed ponowieniem.'});});
  return app;
 }
+
