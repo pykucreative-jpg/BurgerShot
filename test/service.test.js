@@ -18,7 +18,7 @@ async function setup(t){
  const client={guilds:{fetch:async()=>guild},user:{id:'444444444444444444',setPresence:async presence=>{client.presence=presence;}}};
  const svc=service(db,client,{guildId:'333333333333333333'});
  let seq=0;const run=(kind,extra={})=>svc.run({kind,actorId,targetId,reason:'Powód testowy',channelId:config.logs,requestId:'test-'+seq++,...extra});
- return {db,svc,target,actor,roles,members,run};
+ return {db,svc,client,target,actor,roles,members,run};
 }
 test('pełny cykl plusów usuwa stare rangi i zachowuje 5 logów',async t=>{
  const {run,target,db}=await setup(t);
@@ -53,11 +53,11 @@ test('reset kursów jest dostępny tylko dla Zarządu i zachowuje losowania',asy
  actor.roles.cache.clear();await assert.rejects(()=>svc.resetCourses(actor.id),/uprawnionej kadry/);
 });
 test('profil prywatny oraz status bota pokazują kursy i urlopy',async t=>{
- const {svc,target,db}=await setup(t);
+ const {svc,target,db,client}=await setup(t);
  await svc.recordCourse({targetId:target.id,messageId:'profile-kurs',playerName:'Jan Kowalski',courseNumber:4});
  const profile=await svc.personalProfile(target.id);assert.equal(profile.courses.courses_completed,1);assert.equal(profile.employee.ic_name,'Jan Kowalski');
  await db.q("INSERT INTO leaves(user_id,ic_name,starts_at,ends_at,status,channel_id) VALUES($1,$2,now(),now()+interval '1 day','active',$3)",[target.id,'Jan Kowalski',config.logs]);
- const status=await svc.refreshCoursePresence();assert.equal(status.leaves,1);assert.equal(status.total,1);
+ const status=await svc.refreshCoursePresence();assert.equal(status.leaves,1);assert.equal(status.total,1);assert.equal(client.presence.activities[0].name,'🌴 1/1 na urlopie');assert.doesNotMatch(client.presence.activities[0].name,/aktywnych/);
 });
 test('drugi minus odbiera rangi, wyrzuca i zachowuje historię',async t=>{
  const {run,target,members,db}=await setup(t);await run('minus');assert.ok(target.roles.cache.has(config.minus[0]));await run('minus');assert.equal(members.has(targetId),false);assert.equal(target.roles.cache.size,0);
