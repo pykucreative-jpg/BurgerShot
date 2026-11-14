@@ -70,8 +70,8 @@ export function parseActivityLog(embed,message={}){
 }
 export function webhookNotice(event,targetId){
  const person=targetId?`<@${targetId}> (${escapeMarkdown(event.person)})`:escapeMarkdown(event.person),actor=escapeMarkdown(event.actor);
- if(event.kind==='zdejmijurlop')return {channel:'1502336468016828567',title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
- if(event.kind==='urlop')return {channel:'1502336468016828567',title:'🌴 Urlop pracownika',body:event.endsAt?`👤 **Pracownik:** ${person}\n📅 **Od:** ${leaveDate(event.startsAt)}\n📅 **Do:** ${leaveDate(event.endsAt)}\n👤 **Urlopu udzielił(a):** ${actor}`:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`,art:'urlop'};
+ if(event.kind==='zdejmijurlop')return {channel:config.leaveNoticeChannel,title:'☀️ Witamy z powrotem!',body:`👤 **Pracownik:** ${person}\n🌴 Urlop został zakończony. Zapraszamy do pracy! 🍔\n👤 **Urlop zakończył(a):** ${actor}`};
+ if(event.kind==='urlop')return {channel:config.leaveNoticeChannel,title:'🌴 Urlop pracownika',body:event.endsAt?`👤 **Pracownik:** ${person}\n📅 **Od:** ${leaveDate(event.startsAt)}\n📅 **Do:** ${leaveDate(event.endsAt)}\n👤 **Urlopu udzielił(a):** ${actor}`:`👤 **Pracownik:** ${person}\n📅 **Do kiedy:** Bezterminowo\n👤 **Urlopu udzielił(a):** ${actor}`,art:'urlop'};
  const titles={awans:'📈 Awans pracownika',degrad:'📉 Degradacja pracownika',zwolnij:'📋 Zakończenie współpracy'};
  const who={awans:'Awansował(a)',degrad:'Zdegradował(a)',zwolnij:'Zwolnił(a)'};
  const reason=event.kind==='awans'?'Wyrobienie normy awansowej':'Brak wyrobionej normy';
