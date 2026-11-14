@@ -46,7 +46,7 @@ const deliveryMessage=({title,description,proof})=>{
 export const mechanicMessage=({description,proof})=>deliveryMessage({title:'🔧 DOSTAWA MECHANIKA',description,proof});
 export const leaveTemplate='🌴 WZÓR URLOPU\n\nKto: imię i nazwisko\nOd kiedy: data i miesiąc\nDo kiedy: data i miesiąc\nPowód:';
 export const shouldSendLeaveTemplate=message=>String(message.channelId)===config.leaveNoticeChannel&&!message.author?.bot&&!message.webhookId;
-export const onboardingTemplate='🍔 **START W BURGERSHOT**\nWyślij: **`.`** • ustaw nick na **imię i nazwisko IC**.\nDołącz do firmowego **OneSide**: [kliknij tutaj](https://discord.gg/rGTUEfSuTE).\nPo zatrudnieniu: plakietka na <#1292911416516415592> • radio **1.22**. 📻';
+export const onboardingTemplate='🍔 **START W BURGERSHOT**\nWyślij: **`.`** • ustaw nick na **imię i nazwisko IC**.\nDołącz do firmowego **OneSide**: [kliknij tutaj](https://discord.gg/rGTUEfSuTE).\nPo zatrudnieniu zapoznaj się z kanałami: <#1292911416516415589> oraz <#1567885754305093672> • plakietka: <#1292911416516415592> • radio **1.22**. 📻';
 export const shouldSendOnboardingTemplate=message=>String(message.channelId)===config.onboardingNoticeChannel&&!message.author?.bot&&!message.webhookId;
 export const onboardingMessage=()=>({content:onboardingTemplate,flags:MessageFlags.SuppressEmbeds,allowedMentions:{parse:[]}});
 export const commandPreviews=()=>[
