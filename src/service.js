@@ -90,7 +90,7 @@ export function service(db, client, env) {
     const activeCount=activeRows.filter(row=>memberIds.has(row.user_id)).length;
     const total=members.length;
     const leaveCount=(await db.q("SELECT count(*)::int AS count FROM leaves WHERE status IN ('active','starting','ending')")).rows[0].count;
-    await client.user.setPresence({activities:[{name:`👁 ${activeCount}/${total} aktywnych\n🌴 ${leaveCount}/${total} na urlopie`,type:3}],status:'online'});
+    await client.user.setPresence({activities:[{name:`🌴 ${leaveCount}/${total} na urlopie`,type:3}],status:'online'});
     return {active:activeCount,leaves:leaveCount,total,expired:active.length};
   }
   async function spinWheel(userId) {
