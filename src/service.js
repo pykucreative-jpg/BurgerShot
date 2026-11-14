@@ -130,6 +130,10 @@ export function service(db, client, env) {
     const rows=(await db.q('SELECT user_id,count(*)::int AS courses_completed FROM course_events WHERE course_number=4 AND created_at >= $1 AND created_at < $2 GROUP BY user_id ORDER BY courses_completed DESC,user_id LIMIT 100',[start,end])).rows;
     return rows.filter(row=>company.has(row.user_id)).map(row=>({...row,name:company.get(row.user_id).ic_name}));
   }
+  async function activeLeaves(actorId){
+    await authorize(actorId);
+    return (await db.q("SELECT user_id,ic_name,ends_at,status FROM leaves WHERE status IN ('active','starting','ending') ORDER BY ends_at ASC NULLS LAST,ic_name ASC")).rows;
+  }
   async function personalProfile(userId) {
     const m=await member(userId),staff=m.roles.cache.has(config.staff),employeeRole=m.roles.cache.has(config.employee);
     if(!staff&&!employeeRole)throw new UserError('Mój profil jest dostępny dla Zarządu oraz pracowników z rangą Firma DC.');
@@ -390,6 +394,6 @@ export function service(db, client, env) {
       });
     });
   }
-  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,courseRanking,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook,recordDelivery};
+  return {guild,member,companyMembers,courseMemberByName,employee,recordCourse,markActiveCourse,refreshCoursePresence,spinWheel,courseStatus,weeklyCourseInfo,courseRanking,activeLeaves,personalProfile,resetCourses,resetCoursesFromWebhook,resetCoursesOnRelease,authorize,run,audit,tickLeaves,notify,applyWebhook,recordDelivery};
 }
 
