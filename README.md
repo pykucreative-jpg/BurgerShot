@@ -7,7 +7,7 @@ Samodzielny bot Discord. Bez strony, ticketów, czarnej listy, zdjęć i SSN.
 - /minus osoba powod — drugi minus odbiera zarządzalne rangi i wyrzuca z serwera.
 - /awans osoba powod oraz /degrad osoba powod — jeden stopień w skonfigurowanej hierarchii.
 - /zwolnij osoby powod — do 20 oznaczeń osób lub ID oddzielonych spacją, wspólny powód. Działa od razu, bez potwierdzenia; usuwa duplikaty, pokazuje sukcesy i błędy. Odbiera zarządzalne rangi i wyrzuca z serwera.
-- /urlop osoba do_kiedy — DD.MM, bieżący rok, koniec dnia w Europe/Warsaw.
+- /urlop osoba [do_kiedy] — data DD.MM jest opcjonalna; bez niej urlop jest bezterminowy.
 - /zdejmijurlop osoba powod — ręczne zakończenie urlopu.
 
 Dostęp wyłącznie dla rangi kadry zapisanej w src/config.js. Zmiany i wykonawcy trafiają do PostgreSQL i kanału logów. Urlopy przetrwają restart, co 15 sekund bot sprawdza termin i wysyła powiadomienie na kanał użycia komendy. W razie braku uprawnień próbuje ponownie po 5 minutach. Role Discord i baza nie tworzą jednej transakcji — częściowe błędy są logowane. Kolejka wysyłek może powtórzyć wiadomość po awarii między wysłaniem a potwierdzeniem w bazie.
