@@ -12,8 +12,10 @@ import {Client,GatewayIntentBits,Events,SlashCommandBuilder,EmbedBuilder,Message
 import {config,labels} from './config.js';
 import {UserError,parseLeaveDate,formatDate,text} from './domain.js';
 import {DateTime} from 'luxon';
+import {fileURLToPath} from 'node:url';
 export const makeClient=()=>new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildMembers,GatewayIntentBits.GuildMessages,GatewayIntentBits.MessageContent],allowedMentions:{parse:[]}});
 const brandAvatar='https://raw.githubusercontent.com/pykucreative-jpg/BurgerShot/main/public/discord-avatar.jpg';
+const companyRulesGraphicPath=fileURLToPath(new URL('../public/regulamin-firmy.jpg',import.meta.url));
 const mechanicCommand=()=>new SlashCommandBuilder().setName('mechanik').setDescription('🔧 Zapisz dostawę mechanika').setDMPermission(false)
  .addUserOption(option=>option.setName('dostarczyl').setDescription('Osoba dostarczająca').setRequired(true))
  .addIntegerOption(option=>option.setName('ile').setDescription('Liczba dostarczonych części').setMinValue(1).setMaxValue(10000).setRequired(true))
@@ -58,7 +60,7 @@ export const companyRulesFields=[
  ['📋 KADRA I ORGANIZACJA • 9–13','**9. Black lista**\nZakazane jest nadawanie black list bez powodu. Każda black lista musi być przemyślana i potwierdzona klipem.\n\n**10. Warunki awansu**\nNie wolno awansować pracownika, który nie wykonał wymaganej liczby kursów.\n\n**11. Tempo awansów**\nPracownika można awansować maksymalnie o jeden stopień tygodniowo. Wyjątkiem jest Pracownik Tygodnia.\n\n**12. Limit zatrudnienia**\nMaksymalna liczba pracowników firmy wynosi **100 osób**.\n\n**13. Uczciwa konkurencja**\nZabrania się promowania firmy na terenie innych firm oraz nakłaniania pracowników konkurencji do zmiany pracy przez łapówki, korzyści materialne lub inne formy zachęty. Aktywność firmy należy budować dobrą organizacją i prowadzeniem działalności.'],
  ['🛡️ KULTURA I BEZPIECZEŃSTWO • 14–18','**14. Wygląd pracownika**\nZakazane są mocne tatuaże na twarzy. Dopuszczalne są wyłącznie drobne, pojedyncze tatuaże.\n\n**15. Kultura osobista**\nKażdy pracownik na terenie firmy ma obowiązek zachować kulturę.\n\n**16. Przedmioty zabronione**\nNa teren lokalu nie wolno wnosić ani posiadać broni, narkotyków, kajdanek ani innych przedmiotów mogących służyć działalności przestępczej. Wyjątkiem są osoby z ważną licencją na broń, które noszą ją na własną odpowiedzialność. Właściciel i zarząd mogą przeprowadzić kontrolę pracownika, odebrać zabronione przedmioty oraz przekazać je LSPD.\n\n**17. Sprawy crime**\nNa terenie firmy obowiązuje całkowity zakaz omawiania spraw związanych z crime.\n\n**18. Spotkania grup przestępczych**\nZabrania się organizowania spotkań grup przestępczych na terenie firmy.']
 ];
-export const companyRulesMessage=()=>({embeds:[card({title:'📌 REGULAMIN FIRMY',description:'Regulamin obowiązuje wszystkich członków firmy BurgerShot.',fields:Object.fromEntries(companyRulesFields)})],allowedMentions:{parse:[]}});
+export const companyRulesMessage=()=>({files:[{attachment:companyRulesGraphicPath,name:'regulamin-burgershot.jpg'}],allowedMentions:{parse:[]}});
 export const commandPreviews=()=>[
  ['zatrudnij','🍔 Witamy w BurgerShot!','@Pracownik dołącza do naszego zespołu. Miło Cię widzieć! 🍟'],['plus','🌟 Dobra robota!','@Pracownik, dziękujemy za zaangażowanie! 🤍'],['minus','⚠️ Ostrzeżenie pracownicze','@Pracownik otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.'],['awans','✨ Pora na kolejny krok!','@Pracownik awansuje. Gratulujemy! 🍔'],['degrad','📋 Zmiana stanowiska','@Pracownik przechodzi na niższe stanowisko.'],['zwolnij','📋 Zakończenie współpracy','Jan Kowalski został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.'],['urlop','🌴 Czas na odpoczynek!','@Pracownik, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️'],['zdejmijurlop','🌸 Witamy z powrotem!','@Pracownik, Twój urlop został zakończony ręcznie. Zapraszamy do pracy! 🍟'],['urlopy','🌴 Urlopy aktualnie','Osoby na urlopie — 2\n\n1. @Pracownik — do 15.11.2026, 14:00\n2. @Pracownik — bezterminowo'],['kolo','🎡 Losowanie nagrody za kursy','@Pracownik zakręca kołem…\n🎁 Wylosowano: Aparat'],['info','📚 Kursy w tym tygodniu','Łącznie — 55\n\nPoniedziałek — 55\nWtorek — 0\nŚroda — 0'],['ranking','🏆 Ranking kursów','1. @Pracownik — 21 kursów\n2. @Pracownik — 10 kursów'],['wyplac','💰 Wypłata nagród','Wybrano nagrodę do wypłaty dla pracownika.'],['reset','↺ Kursy wyzerowane','Wyzerowano kursy. Dostępne losowania i historia nagród pozostały bez zmian.'],['nagrody','💰 Nagrody BurgerShot','Lista nagród oczekujących na wypłatę.'],['lista','🍔 Lista medyków','🟢 01. Alejandro Restrepo · 0 / 5'],['zestawy','🍟 Wydano zestawy','Medyk: Alejandro Restrepo\nWydano: 1 zestaw\nDzisiaj: 1 / 5'],['dostawy','🍔 Dostawa medyczna','Kto dostarczył: @Zarząd\nKto pomógł: @Pracownik\nKto odebrał: Alejandro Restrepo\nData: 13.10.2026, 18:42'],['mechanik','🔧 Dostawa mechanika','Kto dostarczył: @Pracownik\nDostarczono: 12\nPozostało: 198 / 210']
 ].map(([command,title,description])=>card({title:`/${command} • ${title}`,description:`**Podgląd powiadomienia z komendy /${command}**\n\n${description}`,art:['plus','minus','urlop','zwolnij'].includes(command)?command:undefined}));
@@ -157,6 +159,28 @@ export function bot(db,client,svc,env){
   if(!legacyMessage&&!currentMessage)return false;
   await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
   return Boolean(legacyMessage);
+ };
+ const repairCompanyRulesGraphic=async()=>{
+  const marker='company_rules_graphic_2026_11_14';
+  if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return false;
+  const channel=await client.channels.fetch('1292911416516415589');
+  if(!channel?.isTextBased?.()||!channel.messages?.fetch)return false;
+  let before,sourceMessage,graphicMessage;
+  for(let page=0;page<5;page++){
+   const messages=await channel.messages.fetch({limit:100,...(before?{before}:{})});
+   for(const message of messages.values()){
+    if(message.author?.id!==client.user?.id)continue;
+    if(message.attachments.some(attachment=>attachment.name==='regulamin-burgershot.jpg')){graphicMessage=message;break;}
+    if(message.embeds.some(embed=>embed.title?.startsWith('📌 REGULAMIN FIRMY')))sourceMessage??=message;
+   }
+   if(graphicMessage||sourceMessage||messages.size<100)break;
+   before=messages.last()?.id;
+   if(!before)break;
+  }
+  if(sourceMessage)await sourceMessage.edit({content:'',embeds:[],...companyRulesMessage()});
+  else if(!graphicMessage)await channel.send(companyRulesMessage());
+  await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
+  return Boolean(sourceMessage||!graphicMessage);
  };
  const repairMechanicProofLayouts=async()=>{
   const guild=await svc.guild();
@@ -411,7 +435,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,sendCompanyRules,consolidateCompanyRulesMessage,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,sendCompanyRules,consolidateCompanyRulesMessage,repairCompanyRulesGraphic,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
