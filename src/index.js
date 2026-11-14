@@ -22,6 +22,7 @@ const sundayCourseRecoveryStart=()=>DateTime.now().setZone('Europe/Warsaw').star
 client.once(Events.ClientReady,async()=>{try{const optional=async(name,work)=>{try{return await work();}catch(e){console.error(`Uruchomienie: ${name}`,e.code||e.name);return null;}};
  await syncCommands();
  await optional('wiadomość na czacie',()=>discord.sendOneOffChatMessage());
+ await optional('ogłoszenie współprac',()=>discord.sendCompanyPartnershipAnnouncement());
  await optional('układ dowodów mechanika',()=>discord.repairMechanicProofLayouts());
  lastMechanicProofRepair=Date.now();
  if(config.automatedLogActions){const reset=await svc.resetCoursesOnRelease();if(reset.ran)console.log(`Wyzerowano kursy dla ${reset.count} osób po aktualizacji zasad.`);const recovered=await optional('odzyskiwanie kursów',()=>recoverCourseLogsSince(db,client,env.guildId,sundayCourseRecoveryStart()));if(recovered)console.log(`Odzyskano ${recovered} kursów od niedzieli 21:40.`);const retried=await optional('ponowienie kursów',()=>retryFailedCoursesSinceReset(db));if(retried)await optional('przetwarzanie kursów',()=>processCourseLogs(db,svc));}
