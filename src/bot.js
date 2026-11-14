@@ -130,7 +130,7 @@ export function bot(db,client,svc,env){
   return true;
  };
  const sendCompanyRules=async()=>{
-  const marker='company_rules_announcement_2026_11_14';
+  const marker='company_rules_single_card_2026_11_14';
   if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return false;
   const channel=await client.channels.fetch('1292911416516415589');
   await channel.send(companyRulesMessage());
