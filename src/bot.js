@@ -49,6 +49,8 @@ export const shouldSendLeaveTemplate=message=>String(message.channelId)===config
 export const onboardingTemplate='🍔 **START W BURGERSHOT**\nWyślij: **`.`** • ustaw nick na **imię i nazwisko IC**.\nDołącz do firmowego **OneSide**: [kliknij tutaj](https://discord.gg/rGTUEfSuTE).\n\nPo zatrudnieniu zapoznaj się z kanałami:\n<#1292911416516415589>\n<#1567885754305093672>\n<#1292911416516415592>\n\nDołącz na radio: <#1567476486078730390> 📻';
 export const shouldSendOnboardingTemplate=message=>String(message.channelId)===config.onboardingNoticeChannel&&!message.author?.bot&&!message.webhookId;
 export const onboardingMessage=()=>({content:onboardingTemplate,flags:MessageFlags.SuppressEmbeds,allowedMentions:{parse:[]}});
+export const companyPartnershipAnnouncement='Dzięki współpracy z EMS, LSC i PD rozwijamy BurgerShot oraz zapewniamy ekipie dodatkowe korzyści. 🍔\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚑 EMS × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• Darmowe leczenie u Basi.\n• U pozostałych medyków płacimy tylko **5% kosztów leczenia**.\n• Tańsze apteczki dla firmy.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚗 LSC × BurgerShot**__\n\n• Dostarczamy **210 zestawów tygodniowo**\n*(30 zestawów dziennie).*\n• Otrzymujemy zniżki na FT.\n• Dostęp do dodatków i udogodnień dla pojazdów.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚓 PD × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• PD opłaca zamówienia.\n• Środki przeznaczamy na konkursy i nagrody dla pracowników.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**Dzięki tym współpracom możemy dalej rozwijać firmę i organizować więcej nagród dla całej ekipy.**__ ❤️\n\n**Dziękujemy za zaangażowanie!**';
+export const companyPartnershipMessage=()=>({embeds:[card({title:'📢 WSPÓŁPRACE FIRMOWE',description:companyPartnershipAnnouncement})],allowedMentions:{parse:[]}});
 export const commandPreviews=()=>[
  ['zatrudnij','🍔 Witamy w BurgerShot!','@Pracownik dołącza do naszego zespołu. Miło Cię widzieć! 🍟'],['plus','🌟 Dobra robota!','@Pracownik, dziękujemy za zaangażowanie! 🤍'],['minus','⚠️ Ostrzeżenie pracownicze','@Pracownik otrzymuje minus. Drugi minus oznacza zwolnienie i usunięcie z serwera.'],['awans','✨ Pora na kolejny krok!','@Pracownik awansuje. Gratulujemy! 🍔'],['degrad','📋 Zmiana stanowiska','@Pracownik przechodzi na niższe stanowisko.'],['zwolnij','📋 Zakończenie współpracy','Jan Kowalski został(a) zwolniony/a. Odebrano rangi i usunięto osobę z serwera.'],['urlop','🌴 Czas na odpoczynek!','@Pracownik, Twój urlop został zatwierdzony. Odpocznij i wracaj z nową energią! ☀️'],['zdejmijurlop','🌸 Witamy z powrotem!','@Pracownik, Twój urlop został zakończony ręcznie. Zapraszamy do pracy! 🍟'],['urlopy','🌴 Urlopy aktualnie','Osoby na urlopie — 2\n\n1. @Pracownik — do 15.11.2026, 14:00\n2. @Pracownik — bezterminowo'],['kolo','🎡 Losowanie nagrody za kursy','@Pracownik zakręca kołem…\n🎁 Wylosowano: Aparat'],['info','📚 Kursy w tym tygodniu','Łącznie — 55\n\nPoniedziałek — 55\nWtorek — 0\nŚroda — 0'],['ranking','🏆 Ranking kursów','1. @Pracownik — 21 kursów\n2. @Pracownik — 10 kursów'],['wyplac','💰 Wypłata nagród','Wybrano nagrodę do wypłaty dla pracownika.'],['reset','↺ Kursy wyzerowane','Wyzerowano kursy. Dostępne losowania i historia nagród pozostały bez zmian.'],['nagrody','💰 Nagrody BurgerShot','Lista nagród oczekujących na wypłatę.'],['lista','🍔 Lista medyków','🟢 01. Alejandro Restrepo · 0 / 5'],['zestawy','🍟 Wydano zestawy','Medyk: Alejandro Restrepo\nWydano: 1 zestaw\nDzisiaj: 1 / 5'],['dostawy','🍔 Dostawa medyczna','Kto dostarczył: @Zarząd\nKto pomógł: @Pracownik\nKto odebrał: Alejandro Restrepo\nData: 13.10.2026, 18:42'],['mechanik','🔧 Dostawa mechanika','Kto dostarczył: @Pracownik\nDostarczono: 12\nPozostało: 198 / 210']
 ].map(([command,title,description])=>card({title:`/${command} • ${title}`,description:`**Podgląd powiadomienia z komendy /${command}**\n\n${description}`,art:['plus','minus','urlop','zwolnij'].includes(command)?command:undefined}));
@@ -108,6 +110,14 @@ export function bot(db,client,svc,env){
   if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return false;
   const channel=await client.channels.fetch('1502336289339478138');
   await channel.send({content:'😔 Przestańcie mnie obrażać zaprogramował mnie mój właściciel ja też mam uczucia jebać was w imię zasad skur... 🍔🤖💔',allowedMentions:{parse:[]}});
+  await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
+  return true;
+ };
+ const sendCompanyPartnershipAnnouncement=async()=>{
+  const marker='company_partnership_announcement_2026_11_14';
+  if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)return false;
+  const channel=await client.channels.fetch('1567885754305093672');
+  await channel.send(companyPartnershipMessage());
   await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
   return true;
  };
@@ -364,7 +374,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
