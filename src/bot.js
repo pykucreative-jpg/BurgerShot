@@ -63,6 +63,8 @@ export const deliveryReminderTemplates={
  '1574095813129539584':'🚕 **PRZYPOMNIENIE DOSTAW TAXI**\nUżyj: `/taxi` • na 2 dni: **100 zestawów**.'
 };
 export const deliveryReminderFor=message=>!message.author?.bot&&!message.webhookId?deliveryReminderTemplates[String(message.channelId)]||null:null;
+const deliveryReminderChannels={zestawy:'1558936138972930150',dostawy:'1502335541537145005',mechanik:'1564015815081070662',pd:'1566566813469376512',taxi:'1574095813129539584'};
+export const deliveryReminderAfterCommand=({commandName,channelId})=>deliveryReminderChannels[commandName]===String(channelId)?deliveryReminderTemplates[String(channelId)]||null:null;
 export const companyPartnershipAnnouncement='Dzięki współpracy z EMS, LSC i PD rozwijamy BurgerShot oraz zapewniamy ekipie dodatkowe korzyści. 🍔\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚑 EMS × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• Darmowe leczenie u Basi.\n• U pozostałych medyków płacimy tylko **5% kosztów leczenia**.\n• Tańsze apteczki dla firmy.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚗 LSC × BurgerShot**__\n\n• Dostarczamy **210 zestawów tygodniowo**\n*(30 zestawów dziennie).*\n• Otrzymujemy zniżki na FT.\n• Dostęp do dodatków i udogodnień dla pojazdów.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚓 PD × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• PD opłaca zamówienia.\n• Środki przeznaczamy na konkursy i nagrody dla pracowników.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**Dzięki tym współpracom możemy dalej rozwijać firmę i organizować więcej nagród dla całej ekipy.**__ ❤️\n\n**Dziękujemy za zaangażowanie!**';
 export const companyPartnershipMessage=()=>({embeds:[card({title:'📢 WSPÓŁPRACE FIRMOWE',description:companyPartnershipAnnouncement})],allowedMentions:{parse:[]}});
 export const companyRulesFields=[
@@ -112,6 +114,11 @@ export function bot(db,client,svc,env){
   const deliveryReminder=deliveryReminderFor(m);
   if(deliveryReminder)m.channel.send({content:deliveryReminder,allowedMentions:{parse:[]}}).catch(err=>console.error('Nie wysłano przypomnienia dostawy',err.code||err.name));
  });
+ const sendDeliveryReminderAfterCommand=async interaction=>{
+  const reminder=deliveryReminderAfterCommand(interaction);
+  if(!reminder||!interaction.channel?.isTextBased?.())return;
+  try{await interaction.channel.send({content:reminder,allowedMentions:{parse:[]}});}catch(err){console.error('Nie wysłano przypomnienia po komendzie dostawy',err.code||err.name);}
+ };
  client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestIncoming(m).catch(err=>console.error('Obsługa aktualizacji logu',err.code||err.name));});
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
  const publish=async(kind,payload,fallback,required=false)=>{const channel=await client.channels.fetch(destination(kind,fallback,required));const {art,...message}=payload;await channel.send({...message,files:actionFiles(art),allowedMentions:{parse:[]}});};
@@ -378,7 +385,7 @@ export function bot(db,client,svc,env){
    if(i.commandName==='zestawy'){
     if(i.channelId!==config.medicSetsChannel)throw new UserError('Komendy /zestawy używaj wyłącznie na wyznaczonym kanale zestawów.');
     const result=await medicSetManager.issue(i.user.id,i.options.getString('osoba',true),i.options.getInteger('ilosc',true));
-    await i.reply({embeds:[card({title:'🍟 BURGERSHOT • WYDANO ZESTAWY',description:`👤 **Medyk:** ${result.medic.full_name}\n🍟 **Wydano:** ${result.amount} zestawy\n📊 **Dzisiaj:** ${result.total} / 5\n👤 **Wydał(a):** ${result.issuer}`})]});return;
+    await i.reply({embeds:[card({title:'🍟 BURGERSHOT • WYDANO ZESTAWY',description:`👤 **Medyk:** ${result.medic.full_name}\n🍟 **Wydano:** ${result.amount} zestawy\n📊 **Dzisiaj:** ${result.total} / 5\n👤 **Wydał(a):** ${result.issuer}`})]});await sendDeliveryReminderAfterCommand(i);return;
    }
    if(i.commandName==='mechanik'){
     const proof=i.options.getAttachment('dowod'),recipient=i.options.getString('odebral');
@@ -391,6 +398,7 @@ export function bot(db,client,svc,env){
     const [driver,...helpers]=result.deliverers;
     const description=[`👥 **Kto dostarczył:** <@${driver.id}>`,helpers.length?`🤝 **Kto pomógł:** ${helpers.map(member=>`<@${member.id}>`).join(', ')}`:null,`📦 **Dostarczono:** ${result.amount}`,recipient?`👤 **Kto odebrał:** ${escapeMarkdown(recipient)}`:null,proof?'🪪 **Dowód osobisty:** załączony':null,`🎯 **Ten tydzień:** ${result.delivered} / 210`].filter(Boolean).join('\n');
     await i.reply({...mechanicMessage({description,proof}),allowedMentions:{users:result.deliverers.map(member=>member.id),parse:[]}});
+    await sendDeliveryReminderAfterCommand(i);
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🔧 Plus za 5 dostaw mechanika!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw mechanika**. 🍔`})]},i.channelId).catch(err=>console.error('Nie wysłano plusa za dostawy mechanika',err.code||err.name));
     return;
    }
@@ -406,6 +414,7 @@ export function bot(db,client,svc,env){
     const date=DateTime.now().setZone('Europe/Warsaw').toFormat('dd.MM.yyyy, HH:mm');
     const description=[`👥 **Kto dostarczył:** <@${result.driver.id}>`,result.helpers.length?`🤝 **Kto pomógł:** ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}`:null,`👤 **Kto odebrał:** ${escapeMarkdown(recipient)}`,proof?'🪪 **Dowód osobisty:** załączony':null,`📅 **Data:** ${date}`].filter(Boolean).join('\n');
     await i.reply({...deliveryMessage({title:'🚓 DOSTAWA PD',description,proof}),allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)],parse:[]}});
+    await sendDeliveryReminderAfterCommand(i);
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🚓 Plus za 5 dostaw PD!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw PD**. 🍔`})]},i.channelId).catch(err=>console.error('Nie wysłano plusa za dostawy PD',err.code||err.name));
     return;
    }
@@ -420,6 +429,7 @@ export function bot(db,client,svc,env){
     const date=DateTime.now().setZone('Europe/Warsaw').toFormat('dd.MM.yyyy, HH:mm');
     const description=[`👥 **Kto dostarczył:** <@${result.driver.id}>`,result.helpers.length?`🤝 **Kto pomógł:** ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}`:null,`🧊 **Dostarczono do:** ${result.medic.full_name}`,`📅 **Data:** ${date}`].filter(Boolean).join('\n');
     await i.reply({embeds:[card({title:'🚕 DOSTAWA TAXI',description})],allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)],parse:[]}});
+    await sendDeliveryReminderAfterCommand(i);
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🚕 Plus za 5 dostaw Taxi!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw Taxi**. 🍔`})]},config.taxiDeliveriesChannel).catch(err=>console.error('Nie wysłano plusa za dostawy Taxi',err.code||err.name));
     return;
    }
@@ -433,6 +443,7 @@ export function bot(db,client,svc,env){
     }
     const date=DateTime.now().setZone('Europe/Warsaw').toFormat('dd.MM.yyyy, HH:mm');
     await i.reply({embeds:[card({title:'🍔 DOSTAWA MEDYCZNA',description:`Kto dostarczył: <@${result.driver.id}>\nKto pomógł: ${result.helpers.map(helper=>`<@${helper.id}>`).join(', ')}\nKto odebrał: **${result.medic.full_name}**\nData: ${date}`})],allowedMentions:{users:[result.driver.id,...result.helpers.map(helper=>helper.id)]}});
+    await sendDeliveryReminderAfterCommand(i);
     for(const bonus of bonuses)await publish('plus',{art:'plus',embeds:[card({...bonus.result,title:'🚚 Plus za 5 dostaw!',description:`<@${bonus.targetId}> otrzymuje automatycznego plusa za ukończenie **5/5 dostaw**. 🍔`})]},config.deliveriesChannel).catch(err=>console.error('Nie wysłano plusa za dostawy',err.code||err.name));
     return;
    }
