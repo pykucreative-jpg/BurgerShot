@@ -2,6 +2,7 @@ import {web,sessionKey} from './web.js';
 import {processWebhookLogs} from './webhook-logs.js';
 import {processCourseLogs,retryFailedCoursesSinceReset,recoverCourseLogsSince} from './course-wheel.js';
 import {courseReminder} from './courses.js';
+import {dailyDeliveryRoster,deliveryRosterDay,markDailyDeliveryRosterDelivered} from './delivery-roster.js';
 import {queueRewards} from './rewards.js';
 import {Events} from 'discord.js';
 import {DateTime} from 'luxon';
@@ -12,11 +13,27 @@ import {makeClient,bot} from './bot.js';
 const env=environment(),db=database(env.databaseUrl);await db.init();
 const client=makeClient(),svc=service(db,client,env),discord=bot(db,client,svc,env);
 const queueCourses=courseReminder(db);
-let initialized=false,working=false,stopping=false,lastMaintenance=0,lastCoursePresence=0,lastMechanicProofRepair=0,nextCommandSync=0;
+const queueDeliveryRoster=dailyDeliveryRoster.bind(null,db);
+let initialized=false,working=false,stopping=false,lastMaintenance=0,lastCoursePresence=0,lastMechanicProofRepair=0,nextCommandSync=0,nextDeliveryRosterAttempt=0,completedDeliveryRosterDay=null;
  env.sessionSecret=await sessionKey(db);
  const httpServer=web(db,svc,discord,env,()=>initialized&&client.isReady()).listen(env.port,'0.0.0.0',()=>console.log('Panel BurgerShot gotowy.'));
 const syncCommands=async()=>{try{await discord.syncCommands();nextCommandSync=Date.now()+1800000;console.log('Komendy Discord zsynchronizowane.');}catch(e){nextCommandSync=Date.now()+60000;console.error('Synchronizacja komend',e.code||e.name,JSON.stringify(e.rawError?.errors||e.errors||e.message));}};
-const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{if(Date.now()>=nextCommandSync)await syncCommands();const queued=await queueCourses();if(queued)await discord.deliveries();if(Date.now()-lastMaintenance>=3000){lastMaintenance=Date.now();if(config.automatedLogActions){await processWebhookLogs(db,svc);await processCourseLogs(db,svc);}else if(config.automatedDismissalLogs)await processWebhookLogs(db,svc,{dismissalsOnly:true});await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}if(Date.now()-lastMechanicProofRepair>=300000){lastMechanicProofRepair=Date.now();await discord.repairMechanicProofLayouts();}if((config.automatedLogActions||config.automatedActivityLogs)&&Date.now()-lastCoursePresence>=30000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
+const timer=setInterval(async()=>{if(!initialized||!client.isReady()||working)return;working=true;try{
+ if(Date.now()>=nextCommandSync)await syncCommands();
+ const queued=await queueCourses();
+ if(queued)await discord.deliveries();
+ const rosterDay=deliveryRosterDay();
+ if(rosterDay&&rosterDay!==completedDeliveryRosterDay&&Date.now()>=nextDeliveryRosterAttempt){
+  try{
+   const roster=await queueDeliveryRoster();
+   if(!roster)completedDeliveryRosterDay=rosterDay;
+   else{await discord.postDailyDeliveryRoster(roster);await markDailyDeliveryRosterDelivered(db,roster.day);completedDeliveryRosterDay=roster.day;}
+  }catch(error){nextDeliveryRosterAttempt=Date.now()+300000;console.error('Losowanie codziennego przydziału',error.code||error.name);}
+ }
+ if(Date.now()-lastMaintenance>=3000){lastMaintenance=Date.now();if(config.automatedLogActions){await processWebhookLogs(db,svc);await processCourseLogs(db,svc);}else if(config.automatedDismissalLogs)await processWebhookLogs(db,svc,{dismissalsOnly:true});await svc.tickLeaves();await queueRewards(db);await discord.deliveries();}
+ if(Date.now()-lastMechanicProofRepair>=300000){lastMechanicProofRepair=Date.now();await discord.repairMechanicProofLayouts();}
+ if((config.automatedLogActions||config.automatedActivityLogs)&&Date.now()-lastCoursePresence>=30000){lastCoursePresence=Date.now();await svc.refreshCoursePresence();}
+}catch(e){console.error('Zadania cykliczne',e.code||e.name);}finally{working=false;}},1000);
 async function shutdown(code=0){if(stopping)return;stopping=true;clearInterval(timer);httpServer.close();client.destroy();await db.pool.end();process.exit(code);}
 const sundayCourseRecoveryStart=()=>DateTime.now().setZone('Europe/Warsaw').startOf('week').set({hour:21,minute:40,second:0,millisecond:0}).toUTC().toJSDate();
 client.once(Events.ClientReady,async()=>{try{const optional=async(name,work)=>{try{return await work();}catch(e){console.error(`Uruchomienie: ${name}`,e.code||e.name);return null;}};
