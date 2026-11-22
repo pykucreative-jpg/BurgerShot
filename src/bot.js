@@ -33,8 +33,8 @@ const pdCommand=()=>new SlashCommandBuilder().setName('pd').setDescription('🚓
  .addAttachmentOption(option=>option.setName('dowod').setDescription('Opcjonalnie: zdjęcie dowodu osobistego'));
 const taxiCommand=()=>new SlashCommandBuilder().setName('taxi').setDescription('🚕 Zapisz dostawę dla Taxi').setDMPermission(false)
  .addUserOption(option=>option.setName('kto').setDescription('Osoba dostarczająca').setRequired(true))
- .addUserOption(option=>option.setName('pomagal').setDescription('Osoba pomagająca'))
- .addStringOption(option=>option.setName('lodowka').setDescription('Miejsce dostawy').setRequired(true).addChoices({name:'🧊 Lodówka',value:'Lodówka'}));
+ .addStringOption(option=>option.setName('lodowka').setDescription('Miejsce dostawy').setRequired(true).addChoices({name:'🧊 Lodówka',value:'Lodówka'}))
+ .addUserOption(option=>option.setName('pomagal').setDescription('Osoba pomagająca'));
 export const isImportantLog=log=>log.status==='failed'&&!['urlop','zdejmijurlop'].includes(log.category);
 export function card(result){const e=new EmbedBuilder().setColor(result.color||0xFF3B30).setAuthor({name:'BURGER SHOT • STAFF OFFICE'}).setTitle(result.title||'🍔 BurgerShot').setThumbnail(actionThumbnail(result.art)||brandAvatar).setFooter({text:'🍔 BurgerShot'});if(result.description)e.setDescription(result.description.slice(0,4000));if(result.fields)e.addFields(Object.entries(result.fields).map(([name,value])=>({name,value:String(value||'—').slice(0,1024),inline:false})));return e;}
 const imageAttachment=attachment=>attachment&&(/\.(?:avif|gif|jpe?g|png|webp)$/i.test(attachment.name||'')||String(attachment.contentType||'').startsWith('image/'));
