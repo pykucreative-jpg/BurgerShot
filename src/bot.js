@@ -1,4 +1,4 @@
-import {ingestWebhookLog,ingestDismissalLog,trackActivityLog,processWebhookLogs} from './webhook-logs.js';
+import {ingestWebhookLog,ingestDismissalLog,trackActivityLog,processWebhookLogs,matchEmployee} from './webhook-logs.js';
 import {ingestCourseLog,processCourseLogs} from './course-wheel.js';
 import {previewRewards,rewardReport,payReward} from './rewards.js';
 import {badges} from './badges.js';
@@ -128,6 +128,21 @@ export function bot(db,client,svc,env){
  const bingoTickets=bingo(db,client,svc,card);
  const medicSetManager=medicSets(db,client,svc,card);
  const mechanicDelivery=mechanicDeliveries(db,svc);
+ const postDailyDeliveryRoster=async roster=>{
+  const channel=await client.channels.fetch(config.courseChannel);
+  if(!channel?.isTextBased?.())throw new Error('Kanał pracowników nie obsługuje wiadomości.');
+  const guild=await svc.guild();
+  let members=guild.members.cache;
+  try{members=await guild.members.fetch();}catch{}
+  const resolve=name=>{
+   try{const id=matchEmployee(name,members,[]);return {id,label:`<@${id}>`};}
+   catch{return {id:null,label:`**${escapeMarkdown(name)}**`};}
+  };
+  const fridge=resolve(roster.fridge),deliveries=resolve(roster.deliveries);
+  const users=[fridge.id,deliveries.id].filter(Boolean);
+  const date=String(roster.day).split('-').reverse().join('.');
+  await channel.send({content:users.map(id=>`<@${id}>`).join(' ')||undefined,embeds:[card({title:'🎲 DZISIEJSZY PRZYDZIAŁ DOSTAW',description:`🧊 **Lodówka:** ${fridge.label}\n🚚 **Dostawy:** ${deliveries.label}\n\n📅 **Data:** ${date}`})],allowedMentions:{users,parse:[]}});
+ };
  const suppressOnboardingInviteEmbeds=async()=>{
   const channel=await client.channels.fetch(config.onboardingNoticeChannel);
   if(!channel?.isTextBased?.()||!channel.messages?.fetch)return;
@@ -490,7 +505,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,ensureDeliveryReminders,sendCompanyRules,consolidateCompanyRulesMessage,repairCompanyRulesGraphic,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,ensureDeliveryReminders,sendCompanyRules,consolidateCompanyRulesMessage,repairCompanyRulesGraphic,postDailyDeliveryRoster,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
