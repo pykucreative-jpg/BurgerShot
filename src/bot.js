@@ -138,10 +138,10 @@ export function bot(db,client,svc,env){
    try{const id=matchEmployee(name,members,[]);return {id,label:`<@${id}>`};}
    catch{return {id:null,label:`**${escapeMarkdown(name)}**`};}
   };
-  const fridge=resolve(roster.fridge),deliveries=resolve(roster.deliveries);
-  const users=[fridge.id,deliveries.id].filter(Boolean);
+  const people=[resolve(roster.fridge),resolve(roster.deliveries)];
+  const users=people.map(person=>person.id).filter(Boolean);
   const date=String(roster.day).split('-').reverse().join('.');
-  await channel.send({content:users.map(id=>`<@${id}>`).join(' ')||undefined,embeds:[card({title:'🎲 DZISIEJSZY PRZYDZIAŁ DOSTAW',description:`🧊 **Lodówka:** ${fridge.label}\n🚚 **Dostawy:** ${deliveries.label}\n\n📅 **Data:** ${date}`})],allowedMentions:{users,parse:[]}});
+  await channel.send({content:users.map(id=>`<@${id}>`).join(' ')||undefined,embeds:[card({title:'🎲 DZISIEJSZY PRZYDZIAŁ • LODÓWKA I DOSTAWY',description:`👥 **Wyznaczone osoby:** ${people.map(person=>person.label).join(', ')}\n\n🧊 **Zadanie:** wspólnie uzupełniacie lodówkę i realizujecie dostawy.\n📅 **Data:** ${date}`})],allowedMentions:{users,parse:[]}});
  };
  const suppressOnboardingInviteEmbeds=async()=>{
   const channel=await client.channels.fetch(config.onboardingNoticeChannel);
