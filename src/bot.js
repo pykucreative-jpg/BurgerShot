@@ -65,6 +65,7 @@ export const deliveryReminderTemplates={
 export const deliveryReminderFor=message=>!message.author?.bot&&!message.webhookId?deliveryReminderTemplates[String(message.channelId)]||null:null;
 const deliveryReminderChannels={zestawy:'1558936138972930150',dostawy:'1502335541537145005',mechanik:'1564015815081070662',pd:'1566566813469376512',taxi:'1574095813129539584'};
 export const deliveryReminderAfterCommand=({commandName,channelId})=>deliveryReminderChannels[commandName]===String(channelId)?deliveryReminderTemplates[String(channelId)]||null:null;
+export const isCurrentDeliveryReminder=(message,content,botId)=>message?.author?.id===botId&&message.content===content;
 export const companyPartnershipAnnouncement='Dzięki współpracy z EMS, LSC i PD rozwijamy BurgerShot oraz zapewniamy ekipie dodatkowe korzyści. 🍔\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚑 EMS × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• Darmowe leczenie u Basi.\n• U pozostałych medyków płacimy tylko **5% kosztów leczenia**.\n• Tańsze apteczki dla firmy.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚗 LSC × BurgerShot**__\n\n• Dostarczamy **210 zestawów tygodniowo**\n*(30 zestawów dziennie).*\n• Otrzymujemy zniżki na FT.\n• Dostęp do dodatków i udogodnień dla pojazdów.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚓 PD × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• PD opłaca zamówienia.\n• Środki przeznaczamy na konkursy i nagrody dla pracowników.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**Dzięki tym współpracom możemy dalej rozwijać firmę i organizować więcej nagród dla całej ekipy.**__ ❤️\n\n**Dziękujemy za zaangażowanie!**';
 export const companyPartnershipMessage=()=>({embeds:[card({title:'📢 WSPÓŁPRACE FIRMOWE',description:companyPartnershipAnnouncement})],allowedMentions:{parse:[]}});
 export const companyRulesFields=[
@@ -151,6 +152,21 @@ export function bot(db,client,svc,env){
   await channel.send(companyPartnershipMessage());
   await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
   return true;
+ };
+ const ensureDeliveryReminders=async()=>{
+  let sent=0;
+  for(const [channelId,content] of Object.entries(deliveryReminderTemplates)){
+   const marker=`delivery-reminder-seed-2026-11-22:${channelId}`;
+   if((await db.q('SELECT 1 FROM bot_settings WHERE key=$1',[marker])).rows.length)continue;
+   try{
+    const channel=await client.channels.fetch(channelId);
+    if(!channel?.isTextBased?.()||!channel.messages?.fetch)throw new Error('Kanał nie obsługuje wiadomości.');
+    const latest=(await channel.messages.fetch({limit:1})).first();
+    if(!isCurrentDeliveryReminder(latest,content,client.user?.id)){await channel.send({content,allowedMentions:{parse:[]}});sent++;}
+    await db.q("INSERT INTO bot_settings(key,value) VALUES($1,'done') ON CONFLICT(key) DO NOTHING",[marker]);
+   }catch(err){console.error('Nie wysłano początkowego przypomnienia dostawy',channelId,err.code||err.name);}
+  }
+  return sent;
  };
  const sendCompanyRules=async()=>{
   const marker='company_rules_single_card_2026_11_14';
@@ -474,7 +490,7 @@ export function bot(db,client,svc,env){
   }catch(err){console.error('Obsługa komendy',err.code||err.name);const payload={embeds:[card({title:'🍔 Nie udało się wykonać działania',description:err instanceof UserError?err.message:'Sprawdź uprawnienia bota. Działanie może być częściowo wykonane — sprawdź logi.'})]};try{if(i.deferred||i.replied)await i.editReply(payload);else await i.reply({...payload,flags:MessageFlags.Ephemeral});}catch{}}
  });
  const optionalPanel=async(name,work)=>{try{await work();}catch(err){console.error(`Panel ${name}`,err.code||err.name);}};
- return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,sendCompanyRules,consolidateCompanyRulesMessage,repairCompanyRulesGraphic,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
+ return {commands,setVisibility,repairMechanicProofLayouts,sendOneOffChatMessage,sendCompanyPartnershipAnnouncement,ensureDeliveryReminders,sendCompanyRules,consolidateCompanyRulesMessage,repairCompanyRulesGraphic,syncCommands:async()=>{const hidden=(await db.q("SELECT value FROM bot_settings WHERE key='commands_hidden'")).rows[0]?.value==='true';await (await svc.guild()).commands.set(commands(hidden));},deliveries,panel:async()=>{
   await optionalPanel('tablet zarządu',()=>staffTablet.panel(client));
   await optionalPanel('plakietek',()=>badgeGenerator.panel());
   await optionalPanel('kursów i nagród',()=>coursePanel());
