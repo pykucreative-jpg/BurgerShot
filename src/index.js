@@ -23,6 +23,7 @@ client.once(Events.ClientReady,async()=>{try{const optional=async(name,work)=>{t
  await syncCommands();
  await optional('wiadomość na czacie',()=>discord.sendOneOffChatMessage());
  await optional('ogłoszenie współprac',()=>discord.sendCompanyPartnershipAnnouncement());
+ await optional('przypomnienia dostaw',()=>discord.ensureDeliveryReminders());
  await optional('układ regulaminu',()=>discord.consolidateCompanyRulesMessage());
  await optional('ogłoszenie regulaminu',()=>discord.sendCompanyRules());
  await optional('grafika regulaminu',()=>discord.repairCompanyRulesGraphic());
