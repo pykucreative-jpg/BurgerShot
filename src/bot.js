@@ -57,7 +57,7 @@ export const shouldSendOnboardingTemplate=message=>String(message.channelId)===c
 export const onboardingMessage=()=>({content:onboardingTemplate,flags:MessageFlags.SuppressEmbeds,allowedMentions:{parse:[]}});
 export const deliveryReminderTemplates={
  '1502335541537145005':'🚚 **PRZYPOMNIENIE DOSTAW**\nUżyj: `/dostawy` • dziennie: **100 zestawów**.',
- '1558936138972930150':'🍟 **PRZYPOMNIENIE ZESTAWÓW**\nUżyj: `/zestawy` • maksymalnie: **5 zestawów dziennie na osobę z listy medyków**.',
+ '1558936138972930150':'🍟 **PRZYPOMNIENIE ZESTAWÓW**\nUżyj: `/zestawy` • maksymalnie: **5 zestawów dziennie na osobę z listy medyków**.\nKażdy medyk musi okazać dowód osobisty.',
  '1564015815081070662':'🔧 **PRZYPOMNIENIE DOSTAW MECHANIKA**\nUżyj: `/mechanik` • dziennie: **30 zestawów**.',
  '1566566813469376512':'🚓 **PRZYPOMNIENIE DOSTAW PD**\nUżyj: `/pd` • dziennie: **100 zestawów**.',
  '1574095813129539584':'🚕 **PRZYPOMNIENIE DOSTAW TAXI**\nUżyj: `/taxi` • na 2 dni: **100 zestawów**.'
