@@ -121,4 +121,18 @@ AND NOT EXISTS (SELECT 1 FROM imported_webhook_logs newer WHERE newer.event->>'p
 
 CREATE TABLE IF NOT EXISTS bot_settings(key text PRIMARY KEY,value text NOT NULL);
 
+CREATE TABLE IF NOT EXISTS delivery_roster_progress (
+ person text PRIMARY KEY,
+ assignments integer NOT NULL DEFAULT 0 CHECK(assignments >= 0),
+ updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS daily_delivery_draws (
+ day date PRIMARY KEY,
+ fridge_name text NOT NULL,
+ deliveries_name text NOT NULL,
+ delivered boolean NOT NULL DEFAULT false,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ CHECK(fridge_name <> deliveries_name)
+);
+
 
