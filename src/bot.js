@@ -55,6 +55,13 @@ export const shouldSendLeaveTemplate=message=>String(message.channelId)===config
 export const onboardingTemplate='🍔 **START W BURGERSHOT**\nWyślij: **`.`** • ustaw nick na **imię i nazwisko IC**.\nDołącz do firmowego **OneSide**: [kliknij tutaj](https://discord.gg/rGTUEfSuTE).\n\nPo zatrudnieniu zapoznaj się z kanałami:\n<#1292911416516415589>\n<#1567885754305093672>\n<#1292911416516415592>\n\nDołącz na radio: <#1567476486078730390> 📻';
 export const shouldSendOnboardingTemplate=message=>String(message.channelId)===config.onboardingNoticeChannel&&!message.author?.bot&&!message.webhookId;
 export const onboardingMessage=()=>({content:onboardingTemplate,flags:MessageFlags.SuppressEmbeds,allowedMentions:{parse:[]}});
+export const deliveryReminderTemplates={
+ '1502335541537145005':'🚚 **PRZYPOMNIENIE DOSTAW**\nUżyj: `/dostawy` • dziennie: **100 zestawów**.',
+ '1564015815081070662':'🔧 **PRZYPOMNIENIE DOSTAW MECHANIKA**\nUżyj: `/mechanik` • dziennie: **30 zestawów**.',
+ '1566566813469376512':'🚓 **PRZYPOMNIENIE DOSTAW PD**\nUżyj: `/pd` • dziennie: **100 zestawów**.',
+ '1574095813129539584':'🚕 **PRZYPOMNIENIE DOSTAW TAXI**\nUżyj: `/taxi` • na 2 dni: **100 zestawów**.'
+};
+export const deliveryReminderFor=message=>!message.author?.bot&&!message.webhookId?deliveryReminderTemplates[String(message.channelId)]||null:null;
 export const companyPartnershipAnnouncement='Dzięki współpracy z EMS, LSC i PD rozwijamy BurgerShot oraz zapewniamy ekipie dodatkowe korzyści. 🍔\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚑 EMS × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• Darmowe leczenie u Basi.\n• U pozostałych medyków płacimy tylko **5% kosztów leczenia**.\n• Tańsze apteczki dla firmy.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚗 LSC × BurgerShot**__\n\n• Dostarczamy **210 zestawów tygodniowo**\n*(30 zestawów dziennie).*\n• Otrzymujemy zniżki na FT.\n• Dostęp do dodatków i udogodnień dla pojazdów.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**🚓 PD × BurgerShot**__\n\n• Dostarczamy **100 zestawów dziennie**.\n• PD opłaca zamówienia.\n• Środki przeznaczamy na konkursy i nagrody dla pracowników.\n\n━━━━━━━━━━━━━━━━━━━━\n\n__**Dzięki tym współpracom możemy dalej rozwijać firmę i organizować więcej nagród dla całej ekipy.**__ ❤️\n\n**Dziękujemy za zaangażowanie!**';
 export const companyPartnershipMessage=()=>({embeds:[card({title:'📢 WSPÓŁPRACE FIRMOWE',description:companyPartnershipAnnouncement})],allowedMentions:{parse:[]}});
 export const companyRulesFields=[
@@ -101,6 +108,8 @@ export function bot(db,client,svc,env){
   ingestIncoming(m).catch(err=>console.error('Obsługa nowego logu',err.code||err.name));
   if(shouldSendLeaveTemplate(m))m.channel.send({content:leaveTemplate,allowedMentions:{parse:[]}}).catch(err=>console.error('Nie wysłano wzoru urlopu',err.code||err.name));
   if(shouldSendOnboardingTemplate(m))m.channel.send(onboardingMessage()).catch(err=>console.error('Nie wysłano instrukcji startowej',err.code||err.name));
+  const deliveryReminder=deliveryReminderFor(m);
+  if(deliveryReminder)m.channel.send({content:deliveryReminder,allowedMentions:{parse:[]}}).catch(err=>console.error('Nie wysłano przypomnienia dostawy',err.code||err.name));
  });
  client.on(Events.MessageUpdate,(_,m)=>{if(!m.partial)ingestIncoming(m).catch(err=>console.error('Obsługa aktualizacji logu',err.code||err.name));});
  const destination=(kind,fallback,required=false)=>{const id=config.actionChannels[kind];if(!id&&required)throw new UserError('Kanał dla tego działania nie jest jeszcze skonfigurowany.');return id||fallback;};
