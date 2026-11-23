@@ -1,4 +1,4 @@
-import {ingestWebhookLog,ingestDismissalLog,trackActivityLog,processWebhookLogs,matchEmployee} from './webhook-logs.js';
+import {ingestWebhookLog,ingestDismissalLog,trackActivityLog,processWebhookLogs,matchBestEmployee} from './webhook-logs.js';
 import {ingestCourseLog,processCourseLogs} from './course-wheel.js';
 import {previewRewards,rewardReport,payReward} from './rewards.js';
 import {badges} from './badges.js';
@@ -129,13 +129,14 @@ export function bot(db,client,svc,env){
  const medicSetManager=medicSets(db,client,svc,card);
  const mechanicDelivery=mechanicDeliveries(db,svc);
  const postDailyDeliveryRoster=async roster=>{
-  const channel=await client.channels.fetch(config.courseChannel);
+  const channel=await client.channels.fetch(config.dailyDeliveryRosterChannel);
   if(!channel?.isTextBased?.())throw new Error('Kanał pracowników nie obsługuje wiadomości.');
   const guild=await svc.guild();
   let members=guild.members.cache;
   try{members=await guild.members.fetch();}catch{}
+  const employees=(await db.q("SELECT user_id,ic_name FROM employees WHERE status='active'")).rows;
   const resolve=name=>{
-   try{const id=matchEmployee(name,members,[]);return {id,label:`<@${id}>`};}
+   try{const id=matchBestEmployee(name,members,employees);return id?{id,label:`<@${id}>`}:{id:null,label:`**${escapeMarkdown(name)}**`};}
    catch{return {id:null,label:`**${escapeMarkdown(name)}**`};}
   };
   const people=[resolve(roster.fridge),resolve(roster.deliveries)];
