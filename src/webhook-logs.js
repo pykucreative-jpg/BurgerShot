@@ -24,6 +24,32 @@ export function matchEmployee(name,members,employees){
  if(matches.length!==1)throw new Error(matches.length?'Kilka osób ma takie imię i nazwisko.':'Nie znaleziono pracownika po pełnym imieniu i nazwisku.');
  return matches[0].id;
 }
+const bestNameScore=(value,wanted)=>{
+ const candidate=comparableName(value),targetTokens=wanted.split(' ').filter(Boolean),candidateTokens=candidate.split(' ').filter(Boolean);
+ if(!candidate||targetTokens.length<2)return 0;
+ const extra=Math.max(0,candidateTokens.length-targetTokens.length),compact=value=>value.replace(/\s/g,'');
+ if(candidate===wanted)return 100000;
+ if(compact(candidate)===compact(wanted))return 95000;
+ if(` ${candidate} `.includes(` ${wanted} `))return 90000-extra;
+ const positions=targetTokens.map(token=>candidateTokens.indexOf(token));
+ if(positions.some(position=>position<0))return 0;
+ const inOrder=positions.every((position,index)=>index===0||position>positions[index-1]);
+ return 70000+(inOrder?100:0)-extra;
+};
+// Dla komunikatów informacyjnych wybieramy najbliższy pełny nick. W razie
+// idealnego remisu nie oznaczamy nikogo, żeby nie wskazać złej osoby.
+export function matchBestEmployee(name,members,employees=[]){
+ const wanted=comparableName(name);
+ if(wanted.split(' ').filter(Boolean).length<2)return null;
+ const ids=new Set(employees.filter(employee=>normalizedName(employee.ic_name)===normalizedName(name)).map(employee=>employee.user_id));
+ const matches=[...members.values()].filter(member=>!member.user?.bot).map(member=>{
+  const labels=[member.displayName,member.nickname,member.user?.username,member.user?.globalName].filter(Boolean);
+  const score=ids.has(member.id)?200000:Math.max(0,...labels.map(label=>bestNameScore(label,wanted)));
+  return {id:member.id,score};
+ }).filter(match=>match.score>0).sort((left,right)=>right.score-left.score);
+ if(!matches.length||(matches[1]&&matches[0].score===matches[1].score))return null;
+ return matches[0].id;
+}
 export function parseWebhookLog(title,description){
  title=clean(title);const body=clean(description);
  let m;
