@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {PGlite} from '@electric-sql/pglite';
 import {readFile} from 'node:fs/promises';
-import {parseWebhookLog,parseDismissalLog,parseActivityLog,webhookNotice,ingestWebhookLog,ingestDismissalLog,trackActivityLog,sourceChannel,dismissalSourceChannel,activitySourceChannel,matchEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
+import {parseWebhookLog,parseDismissalLog,parseActivityLog,webhookNotice,ingestWebhookLog,ingestDismissalLog,trackActivityLog,sourceChannel,dismissalSourceChannel,activitySourceChannel,matchEmployee,matchBestEmployee,processWebhookLogs,silentLeaveFailure} from '../src/webhook-logs.js';
 const title='BURGERSHOT - Zmiana stopnia';
 test('rozpoznaje cztery formaty i odróżnia awans od degradacji',()=>{
  const promotion=parseWebhookLog(title,'**Abdul Grushinski** zmienił(a) stopień pracownika **Harry Correa** z **Pracownik** na **Starszy Pracownik**.');
@@ -43,6 +43,16 @@ test('zdjęcie urlopu i jednoznaczne nazwisko',()=>{
  assert.equal(matchEmployee(e.person,new Map([['1',m]]),[]),'1');
  assert.throws(()=>matchEmployee(e.person,new Map([['1',m],['2',{...m,id:'2'}]]),[]),/Kilka/);
  assert.throws(()=>matchEmployee('Abdul Inny',new Map([['1',m]]),[]),/Nie znaleziono/);
+});
+
+test('losowanie wybiera najtrafniejsze konto mimo dodatków w nicku',()=>{
+ const exact={id:'exact',displayName:'Markos Valientierra',user:{bot:false,username:'markos'}};
+ const decorated={id:'decorated',displayName:'🍔 [Firma DC] Markos Valientierra (Wiedźmin) [urlop]',user:{bot:false,username:'markos.wiedzmin'}};
+ const other={id:'other',displayName:'Markos Inny',user:{bot:false,username:'inny'}};
+ assert.equal(matchBestEmployee('Markos Valientierra',new Map([[exact.id,exact],[decorated.id,decorated],[other.id,other]]),[]),'exact');
+ assert.equal(matchBestEmployee('Markos Valientierra',new Map([[decorated.id,decorated],[other.id,other]]),[]),'decorated');
+ const same={id:'same',displayName:'Markos Valientierra',user:{bot:false,username:'same'}};
+ assert.equal(matchBestEmployee('Markos Valientierra',new Map([[exact.id,exact],[same.id,same]]),[]),null);
 });
 
 test('nowy log zwolnienia odczytuje osobę i znajduje ją mimo dopisków w pseudonimie',async t=>{
